@@ -1,0 +1,1508 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>لوحة تحكم إدارة موقع البناء</title>
+
+<!-- Tailwind CSS عبر CDN -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- خط عربي: IBM Plex Sans Arabic -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['"IBM Plex Sans Arabic"', 'Tahoma', 'sans-serif'] },
+        colors: {
+          steel: { 900:'#151E25', 800:'#1B252D', 700:'#2A3742', 500:'#5B6B77', 300:'#A9B4BC', 200:'#CFD6DB', 100:'#E8EBEC', 50:'#F3F5F6' },
+          hivis: { DEFAULT:'#F5A800', dark:'#B87F00', soft:'#FFF1CC' },
+          brick: { DEFAULT:'#B5482F', soft:'#F8E1DB' },
+          rebar: { DEFAULT:'#2F7D5B', soft:'#E3F1EA' }
+        }
+      }
+    }
+  }
+</script>
+
+<style>
+  body { font-family: 'IBM Plex Sans Arabic', Tahoma, sans-serif; }
+  :focus-visible { outline: 3px solid #F5A800; outline-offset: 2px; }
+
+  /* شريط التحذير: الفكرة البصرية المميزة */
+  .hazard { background: repeating-linear-gradient(-45deg, #F5A800 0 14px, #1B252D 14px 28px); }
+  .bar-fill.grow-in { transform-origin: right; animation: grow .9s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @media (prefers-reduced-motion: reduce) { .bar-fill.grow-in { animation: none; } }
+
+  .badge { display:inline-flex; align-items:center; gap:.4rem; padding:.15rem .6rem; border-radius:3px; font-size:.78rem; font-weight:600; white-space:nowrap; }
+  .badge::before { content:''; width:.5rem; height:.5rem; border-radius:50%; background:currentColor; }
+  .badge.ok   { background:#E3F1EA; color:#1F6B49; }
+  .badge.warn { background:#FFF1CC; color:#7A5200; }
+  .badge.bad  { background:#F8E1DB; color:#9A3620; }
+  .badge.mute { background:#E4E8EA; color:#46545E; }
+
+  table.data th { font-weight:600; font-size:.8rem; color:#5B6B77; text-align:start; padding:.7rem .75rem; background:#F3F5F6; border-bottom:1px solid #CFD6DB; white-space:nowrap; }
+  table.data td { padding:.5rem .75rem; border-bottom:1px solid #E8EBEC; font-size:.9rem; vertical-align:middle; }
+  table.data tbody tr:hover { background:#FAFBFB; }
+
+  .btn { display:inline-flex; align-items:center; gap:.4rem; padding:.45rem .9rem; border-radius:4px; font-size:.85rem; font-weight:600; cursor:pointer; transition:background .15s; border:1px solid transparent; white-space:nowrap; }
+  .btn-primary { background:#F5A800; color:#151E25; }
+  .btn-primary:hover { background:#FFB81F; }
+  .btn-ghost { background:#fff; border-color:#CFD6DB; color:#2A3742; }
+  .btn-ghost:hover { background:#F3F5F6; }
+  .btn-danger { background:#B5482F; color:#fff; }
+  .btn-sm { padding:.25rem .6rem; font-size:.78rem; }
+
+  .icon-btn { display:inline-flex; align-items:center; justify-content:center; width:1.9rem; height:1.9rem; border-radius:4px; color:#5B6B77; cursor:pointer; }
+  .icon-btn:hover { background:#E8EBEC; color:#151E25; }
+  .icon-btn.danger:hover { background:#F8E1DB; color:#9A3620; }
+
+  .field { width:100%; border:1px solid #CFD6DB; border-radius:4px; padding:.55rem .75rem; font-size:.9rem; background:#fff; font-family:inherit; }
+
+  /* خلايا التعديل المباشر */
+  .cell { background:transparent; border:1px solid transparent; border-radius:3px; padding:.25rem .4rem; font:inherit; font-size:.9rem; color:inherit; min-width:0; }
+  .cell:hover { border-color:#CFD6DB; background:#fff; }
+  .cell:focus { border-color:#F5A800; background:#fff; outline:none; box-shadow:0 0 0 2px #FFF1CC; }
+  .cell::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+  .cell[type=number] { -moz-appearance:textfield; font-variant-numeric:tabular-nums; }
+  .cell-select { border:1px solid #CFD6DB; border-radius:4px; padding:.2rem .4rem; font:inherit; font-size:.82rem; background:#fff; }
+
+  /* تقويم الصيانة */
+  .cal-day { position:relative; height:2.6rem; border-radius:4px; font-size:.85rem; font-variant-numeric:tabular-nums; cursor:pointer; }
+  .cal-day:hover { background:#E8EBEC; }
+  .cal-day.today { background:#151E25; color:#fff; }
+  .cal-dot { position:absolute; bottom:.3rem; left:50%; width:.45rem; height:.45rem; margin-left:-.22rem; border-radius:50%; }
+  .cal-dot.due { background:#F5A800; } .cal-dot.late { background:#B5482F; } .cal-dot.done { background:#2F7D5B; }
+
+  dialog::backdrop { background: rgba(21,30,37,.6); }
+  #modalForm { max-height: 88vh; overflow-y: auto; }
+  svg text { font-family: 'IBM Plex Sans Arabic', Tahoma, sans-serif; }
+
+  @media print {
+    aside, header, #scrim, .no-print, #toast, dialog { display:none !important; }
+    body { background:#fff !important; }
+    main { padding:0 !important; }
+    .cell { border:none !important; background:none !important; padding:0 !important; }
+    .icon-btn, .btn { display:none !important; }
+    .overflow-x-auto { overflow:visible !important; }
+    table.data { min-width:0 !important; }
+    .hazard { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .badge, .bg-hivis, .bg-rebar, .bg-brick { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  }
+</style>
+</head>
+
+<body class="bg-steel-100 text-steel-800 antialiased">
+
+<div class="flex min-h-screen">
+
+  <!-- ========== القائمة الجانبية ========== -->
+  <aside id="sidebar" class="fixed inset-y-0 right-0 z-40 w-64 bg-steel-800 text-steel-200 flex flex-col translate-x-full lg:translate-x-0 lg:static lg:shrink-0 transition-transform duration-200 overflow-y-auto">
+    <div class="px-5 py-6 border-b border-steel-700">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-hivis rounded-sm flex items-center justify-center text-steel-900 shrink-0" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M5 20V9l7-5 7 5v11"/><path d="M10 20v-6h4v6"/></svg>
+        </div>
+        <div class="min-w-0">
+          <p class="text-white font-bold leading-tight">إدارة الموقع</p>
+          <p id="sideProject" class="text-xs text-steel-300 mt-0.5 truncate"></p>
+        </div>
+      </div>
+    </div>
+
+    <nav class="flex-1 py-3" aria-label="التنقل الرئيسي">
+      <button class="nav-btn" data-target="overview"></button>
+      <button class="nav-btn" data-target="workers"></button>
+      <button class="nav-btn" data-target="equipment"></button>
+      <button class="nav-btn" data-target="materials"></button>
+      <button class="nav-btn" data-target="suppliers"></button>
+      <button class="nav-btn" data-target="budget"></button>
+      <button class="nav-btn" data-target="progress"></button>
+      <button class="nav-btn" data-target="log"></button>
+      <button class="nav-btn" data-target="reports"></button>
+    </nav>
+
+    <div class="px-5 py-4 text-xs text-steel-500 border-t border-steel-700 space-y-1">
+      <p id="saveStatus">…</p>
+      <p>يمكنك الكتابة مباشرة داخل الجداول لتعديل الأرقام.</p>
+    </div>
+  </aside>
+  <div id="scrim" class="fixed inset-0 bg-steel-900/50 z-30 hidden lg:hidden"></div>
+
+  <!-- ========== المحتوى ========== -->
+  <div class="flex-1 min-w-0 flex flex-col">
+    <header class="bg-white border-b border-steel-200 px-4 sm:px-8 h-16 flex items-center gap-3 sticky top-0 z-20">
+      <button id="menuBtn" class="lg:hidden p-2 -me-1 rounded hover:bg-steel-100" aria-label="فتح القائمة">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <h1 id="pageTitle" class="text-lg sm:text-xl font-bold flex-1"></h1>
+      <span id="todayLabel" class="text-sm text-steel-500 tabular-nums"></span>
+    </header>
+
+    <main class="p-4 sm:p-8 flex-1">
+      <section id="overview"  class="section space-y-6"></section>
+
+      <section id="workers"   class="section hidden space-y-5">
+        <div id="wkSummary" class="grid grid-cols-2 lg:grid-cols-4 gap-3"></div>
+        <div class="bg-white border border-steel-200 rounded-md">
+          <div class="p-4 flex flex-wrap items-center gap-3 border-b border-steel-200">
+            <input id="wkSearch" class="field sm:max-w-xs" type="search" placeholder="ابحث عن عامل بالاسم" aria-label="بحث عن عامل">
+            <select id="wkTrade" class="field sm:max-w-[12rem]" aria-label="تصفية حسب المهنة"></select>
+            <div class="ms-auto flex flex-wrap gap-2">
+              <button class="btn btn-ghost" data-act="payroll">تسجيل أجور الأسبوع كمصروف</button>
+              <button class="btn btn-primary" data-act="add" data-col="workers">إضافة عامل</button>
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="data w-full min-w-[1150px]">
+              <thead><tr><th>العامل</th><th>المهنة</th><th>الأجر اليومي</th><th>الحضور اليوم</th><th>الإنتاجية</th><th>أيام الأسبوع</th><th>أيام الشهر</th><th>أجر الأسبوع</th><th>أجر الشهر</th><th></th></tr></thead>
+              <tbody id="wkBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <datalist id="tradeList"></datalist>
+      </section>
+
+      <section id="equipment" class="section hidden space-y-5"></section>
+      <section id="materials" class="section hidden space-y-5"></section>
+      <section id="suppliers" class="section hidden space-y-5"></section>
+      <section id="budget"    class="section hidden space-y-5"></section>
+      <section id="progress"  class="section hidden space-y-5"></section>
+      <section id="log"       class="section hidden space-y-5"></section>
+      <section id="reports"   class="section hidden space-y-5"></section>
+    </main>
+  </div>
+</div>
+
+<!-- نافذة الإدخال / التأكيد -->
+<dialog id="modal" class="rounded-md p-0 w-[92vw] max-w-md shadow-xl">
+  <form id="modalForm" class="p-6">
+    <h2 id="modalTitle" class="text-lg font-bold mb-3"></h2>
+    <p id="modalMsg" class="text-sm text-steel-500 mb-3 hidden"></p>
+    <div id="modalFields" class="space-y-4"></div>
+    <div class="flex justify-end gap-2 mt-6">
+      <button type="button" id="modalCancel" class="btn btn-ghost">إلغاء</button>
+      <button type="submit" id="modalSubmit" class="btn btn-primary"></button>
+    </div>
+  </form>
+</dialog>
+<input type="file" id="importFile" accept=".json,application/json" class="hidden">
+<div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-steel-900 text-white text-sm px-4 py-2.5 rounded shadow-lg z-50 hidden max-w-[90vw] text-center"></div>
+
+<script>
+/* =====================================================
+   الإعدادات وأدوات مساعدة
+   ===================================================== */
+const CUR = 'دج';                       // العملة — غيّرها إن أردت
+const KEY = 'site-mgmt-dashboard-v2';   // مفتاح الحفظ في المتصفح
+const MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+const CHART_START = { y: 2026, m: 0 };
+const DAY = 864e5;
+
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const pad = n => String(n).padStart(2, '0');
+const fmt = n => Math.round(n).toLocaleString('en-US');
+const num = n => (+n).toLocaleString('en-US', { maximumFractionDigits: 1 });
+const money = n => `${fmt(n)} ${CUR}`;
+const mil = n => `${(n / 1e6).toFixed(1)} م ${CUR}`;
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const D = s => new Date(s + 'T00:00:00');
+const fdate = dt => `${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}/${dt.getFullYear()}`;
+const fs = s => (s ? fdate(D(s)) : '—');
+const iso = dt => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const nid = arr => arr.reduce((m, x) => Math.max(m, x.id), 0) + 1;
+const daysBetween = (a, b) => Math.round((a - b) / DAY);
+
+const store = {
+  get() { try { return localStorage.getItem(KEY); } catch (e) { return null; } },
+  set(v) { try { localStorage.setItem(KEY, v); return true; } catch (e) { return false; } },
+  del() { try { localStorage.removeItem(KEY); } catch (e) {} }
+};
+
+const TRADES = ['بنّاء', 'حدّاد تسليح', 'نجّار قوالب', 'كهربائي', 'سبّاك', 'سائق رافعة', 'عامل'];
+const WORKER_STATUS = { present: ['حاضر', 'ok'], late: ['متأخر', 'warn'], absent: ['غائب', 'bad'] };
+const EQ_STATUS = { running: ['تعمل', 'ok'], maintenance: ['تحت الصيانة', 'warn'], stopped: ['متوقفة', 'bad'] };
+const MAINT_TYPES = ['صيانة وقائية', 'فحص دوري', 'إصلاح عطل'];
+const WEATHER = ['مشمس', 'غائم', 'ممطر', 'رياح قوية', 'حرارة مرتفعة', 'برد شديد'];
+const LOG_TYPES = ['ملاحظة عامة', 'حادث/إصابة', 'سلامة', 'زيارة/تفتيش', 'تسليم مواد'];
+
+/* =====================================================
+   البيانات الافتراضية
+   ===================================================== */
+function defaults() {
+  return {
+    v: 2,
+    project: { name: 'عمارة سكنية (ط+5)', owner: 'صاحب المشروع', manager: 'مهندس الموقع', today: '2026-09-18' },
+    workers: [
+      { id: 1,  name: 'محمد بن عيسى',    trade: 'بنّاء',        dailyWage: 3500, status: 'present', checkIn: '06:58', prod: 91, daysWeek: 5, daysMonth: 14, lastCheck: '2026-09-18' },
+      { id: 2,  name: 'يوسف مرابط',      trade: 'حدّاد تسليح',  dailyWage: 3500, status: 'present', checkIn: '07:02', prod: 86, daysWeek: 5, daysMonth: 14, lastCheck: '2026-09-18' },
+      { id: 3,  name: 'كريم بوعلام',     trade: 'نجّار قوالب',  dailyWage: 3500, status: 'late',    checkIn: '07:25', prod: 74, daysWeek: 5, daysMonth: 13, lastCheck: '2026-09-18' },
+      { id: 4,  name: 'سمير حداد',       trade: 'كهربائي',      dailyWage: 4000, status: 'present', checkIn: '07:00', prod: 88, daysWeek: 5, daysMonth: 14, lastCheck: '2026-09-18' },
+      { id: 5,  name: 'عبد القادر شريف', trade: 'سبّاك',        dailyWage: 4000, status: 'absent',  checkIn: null,    prod: 69, daysWeek: 4, daysMonth: 11, lastCheck: null },
+      { id: 6,  name: 'رياض بلقاسم',     trade: 'سائق رافعة',   dailyWage: 4500, status: 'present', checkIn: '06:50', prod: 94, daysWeek: 5, daysMonth: 14, lastCheck: '2026-09-18' },
+      { id: 7,  name: 'نور الدين قاسمي', trade: 'بنّاء',        dailyWage: 3500, status: 'present', checkIn: '07:05', prod: 82, daysWeek: 5, daysMonth: 14, lastCheck: '2026-09-18' },
+      { id: 8,  name: 'أنيس عمراني',     trade: 'عامل',         dailyWage: 2500, status: 'late',    checkIn: '07:40', prod: 66, daysWeek: 5, daysMonth: 12, lastCheck: '2026-09-18' },
+      { id: 9,  name: 'فاروق دحماني',    trade: 'حدّاد تسليح',  dailyWage: 3500, status: 'present', checkIn: '07:01', prod: 79, daysWeek: 5, daysMonth: 14, lastCheck: '2026-09-18' },
+      { id: 10, name: 'ياسين مقراني',    trade: 'عامل',         dailyWage: 2500, status: 'present', checkIn: '07:03', prod: 71, daysWeek: 5, daysMonth: 14, lastCheck: '2026-09-18' },
+      { id: 11, name: 'بلال زروقي',      trade: 'نجّار قوالب',  dailyWage: 3500, status: 'absent',  checkIn: null,    prod: 77, daysWeek: 3, daysMonth: 10, lastCheck: null },
+      { id: 12, name: 'إسماعيل تواتي',   trade: 'بنّاء',        dailyWage: 3500, status: 'present', checkIn: '06:57', prod: 89, daysWeek: 5, daysMonth: 14, lastCheck: '2026-09-18' }
+    ],
+    equipment: [
+      { id: 1, name: 'رافعة برجية',   code: 'TC-01', status: 'running',     hours: 1240 },
+      { id: 2, name: 'خلاطة خرسانة',  code: 'MX-02', status: 'running',     hours: 860 },
+      { id: 3, name: 'حفّارة',        code: 'EX-03', status: 'maintenance', hours: 2115 },
+      { id: 4, name: 'مضخّة خرسانة',  code: 'PM-04', status: 'stopped',     hours: 540 },
+      { id: 5, name: 'مولّد كهربائي', code: 'GN-05', status: 'running',     hours: 1720 },
+      { id: 6, name: 'هزّاز خرسانة',  code: 'VB-06', status: 'running',     hours: 310 },
+      { id: 7, name: 'شاحنة قلّابة',  code: 'TR-07', status: 'stopped',     hours: 3050 }
+    ],
+    maint: [
+      { id: 1, eqId: 3, date: '2026-09-22', type: 'إصلاح عطل',    done: false },
+      { id: 2, eqId: 7, date: '2026-09-25', type: 'إصلاح عطل',    done: false },
+      { id: 3, eqId: 4, date: '2026-09-30', type: 'إصلاح عطل',    done: false },
+      { id: 4, eqId: 1, date: '2026-10-05', type: 'صيانة وقائية', done: false },
+      { id: 5, eqId: 2, date: '2026-10-20', type: 'فحص دوري',     done: false },
+      { id: 6, eqId: 5, date: '2026-11-02', type: 'صيانة وقائية', done: false },
+      { id: 7, eqId: 6, date: '2026-12-01', type: 'فحص دوري',     done: false }
+    ],
+    suppliers: [
+      { id: 1, name: 'مؤسسة الأمل لمواد البناء', phone: '0555 01 02 03', notes: 'أسمنت، رمل، حصى' },
+      { id: 2, name: 'شركة الحديد الوطنية',      phone: '0550 04 05 06', notes: 'حديد التسليح' },
+      { id: 3, name: 'مصنع الآجُر الجنوبي',      phone: '0661 07 08 09', notes: 'آجُر' },
+      { id: 4, name: 'مؤسسة الأنابيب المتحدة',   phone: '0770 10 11 12', notes: 'أنابيب PVC' }
+    ],
+    materials: [
+      { id: 1, name: 'أسمنت',            unit: 'كيس 50 كغ', qty: 210,   min: 500,  price: 900,    daily: 40,  lead: 2, supplierId: 1 },
+      { id: 2, name: 'حديد التسليح Ø12', unit: 'طن',        qty: 14.5,  min: 10,   price: 135000, daily: 0.6, lead: 5, supplierId: 2 },
+      { id: 3, name: 'حديد التسليح Ø8',  unit: 'طن',        qty: 3.2,   min: 4,    price: 138000, daily: 0.3, lead: 5, supplierId: 2 },
+      { id: 4, name: 'آجُر (12 ثقب)',     unit: 'قطعة',      qty: 18500, min: 8000, price: 22,     daily: 800, lead: 4, supplierId: 3 },
+      { id: 5, name: 'رمل',              unit: 'م³',        qty: 60,    min: 40,   price: 2200,   daily: 4,   lead: 1, supplierId: 1 },
+      { id: 6, name: 'حصى',              unit: 'م³',        qty: 22,    min: 30,   price: 2800,   daily: 3,   lead: 1, supplierId: 1 },
+      { id: 7, name: 'أنابيب PVC',       unit: 'متر',       qty: 350,   min: 200,  price: 260,    daily: 15,  lead: 3, supplierId: 4 }
+    ],
+    orders: [
+      { id: 1, date: '2026-09-17', matId: 1, qty: 600, supplierId: 1, status: 'pending' },
+      { id: 2, date: '2026-09-08', matId: 5, qty: 30,  supplierId: 1, status: 'received' }
+    ],
+    categories: [
+      { id: 1, name: 'العمالة', budget: 12000000, opening: 8195000 },
+      { id: 2, name: 'المواد',  budget: 24000000, opening: 15550000 },
+      { id: 3, name: 'المعدات', budget: 6000000,  opening: 3805000 },
+      { id: 4, name: 'النقل',   budget: 2500000,  opening: 1680000 },
+      { id: 5, name: 'متفرقات', budget: 3500000,  opening: 2605000 }
+    ],
+    expenses: [
+      { id: 1, date: '2026-09-17', desc: 'شراء حديد التسليح Ø12', cat: 2, amount: 1350000 },
+      { id: 2, date: '2026-09-15', desc: 'أجور الأسبوع الثالث',   cat: 1, amount: 205000 },
+      { id: 3, date: '2026-09-12', desc: 'وقود المعدات',           cat: 3, amount: 185000 },
+      { id: 4, date: '2026-09-10', desc: 'نقل الرمل والحصى',       cat: 4, amount: 120000 },
+      { id: 5, date: '2026-09-08', desc: 'قطع غيار الحفّارة',      cat: 3, amount: 310000 },
+      { id: 6, date: '2026-09-04', desc: 'أدوات سلامة',            cat: 5, amount: 95000 }
+    ],
+    // مصاريف الأشهر قبل تسجيلها في النظام (تُضاف إليها المصاريف المسجّلة)، بدءاً من يناير 2026
+    monthlyBase: [2200000, 3100000, 3800000, 3900000, 4700000, 4300000, 4600000, 4000000, 1235000, 0, 0, 0, 0, 0, 0, 0],
+    monthlyPlan: [2.0, 3.0, 3.5, 4.0, 4.5, 4.5, 4.5, 4.5, 4.5, 3.0, 2.5, 2.0, 1.5, 1.5, 1.5, 1.0],   // بالملايين
+    milestones: [
+      { id: 1, name: 'التهيئة والحفر',                        pStart: '2026-01-05', pEnd: '2026-02-05', aEnd: '2026-02-10', fEnd: null,         progress: 100, w: 5 },
+      { id: 2, name: 'الأساسات',                              pStart: '2026-02-06', pEnd: '2026-04-15', aEnd: '2026-04-28', fEnd: null,         progress: 100, w: 15 },
+      { id: 3, name: 'الهيكل الخرساني (الطوابق 1–3)',          pStart: '2026-04-16', pEnd: '2026-07-30', aEnd: '2026-08-12', fEnd: null,         progress: 100, w: 25 },
+      { id: 4, name: 'الهيكل الخرساني (الطابقان 4–5 والسقف)',  pStart: '2026-08-01', pEnd: '2026-09-10', aEnd: null,         fEnd: '2026-10-05', progress: 85,  w: 20 },
+      { id: 5, name: 'البناء بالآجُر والقواطع',                pStart: '2026-09-01', pEnd: '2026-11-30', aEnd: null,         fEnd: '2026-12-10', progress: 25,  w: 15 },
+      { id: 6, name: 'التمديدات الكهربائية والصحية',           pStart: '2026-11-01', pEnd: '2027-01-31', aEnd: null,         fEnd: null,         progress: 0,   w: 10 },
+      { id: 7, name: 'التشطيبات والدهان والتسليم',             pStart: '2027-02-01', pEnd: '2027-04-30', aEnd: null,         fEnd: null,         progress: 0,   w: 10 }
+    ],
+    log: [
+      { id: 1, date: '2026-09-17', weather: 'مشمس',         type: 'تسليم مواد',   note: 'وصول شحنة حديد التسليح Ø12 (6 أطنان)', workersCount: 10, injuries: 0 },
+      { id: 2, date: '2026-09-15', weather: 'غائم',         type: 'سلامة',        note: 'اجتماع سلامة أسبوعي والتذكير بالخوذة والأحذية', workersCount: 12, injuries: 0 },
+      { id: 3, date: '2026-09-10', weather: 'مشمس',         type: 'ملاحظة عامة',  note: 'تأخر صبّ سقف الطابق الخامس بسبب توقف المضخة', workersCount: 9, injuries: 0 },
+      { id: 4, date: '2026-09-02', weather: 'حرارة مرتفعة', type: 'ملاحظة عامة',  note: 'تقليص ساعات العمل بعد الظهر بسبب الحرارة', workersCount: 11, injuries: 0 },
+      { id: 5, date: '2026-08-20', weather: 'ممطر',         type: 'حادث/إصابة',   note: 'إصابة طفيفة في اليد أثناء نقل الحديد، أُسعف العامل في الموقع', workersCount: 10, injuries: 1 }
+    ]
+  };
+}
+
+let state = load();
+let TODAY;
+function setToday() { TODAY = state.project.today ? D(state.project.today) : new Date(new Date().toDateString()); }
+function load() {
+  const raw = store.get();
+  if (raw) { try { const o = JSON.parse(raw); if (o && o.v === 2) return o; } catch (e) {} }
+  return defaults();
+}
+setToday();
+
+let saveT;
+function save() {
+  clearTimeout(saveT);
+  saveT = setTimeout(() => {
+    const ok = store.set(JSON.stringify(state));
+    $('#saveStatus').textContent = ok ? '✓ تُحفظ التعديلات تلقائياً في هذا المتصفح' : '⚠ الحفظ التلقائي غير متاح هنا، استعمل «نسخة احتياطية»';
+  }, 80);
+}
+
+/* =====================================================
+   البحث عن السجلات
+   ===================================================== */
+const byId = (arr, id) => state[arr].find(x => x.id === id);
+const catName = id => (byId('categories', id) || {}).name || '—';
+const eqName = id => { const e = byId('equipment', id); return e ? `${e.name} (${e.code})` : '—'; };
+const matOf = id => byId('materials', id);
+const supName = id => (byId('suppliers', id) || {}).name || '—';
+
+/* =====================================================
+   الحسابات
+   ===================================================== */
+function catSpent(c) { return c.opening + state.expenses.filter(e => e.cat === c.id).reduce((s, e) => s + e.amount, 0); }
+function budgetTotals() {
+  const budget = state.categories.reduce((s, c) => s + c.budget, 0);
+  const spent = state.categories.reduce((s, c) => s + catSpent(c), 0);
+  return { budget, spent, left: budget - spent, pct: budget ? spent / budget * 100 : 0 };
+}
+function monthIndex(dateStr) { const d = D(dateStr); return (d.getFullYear() - CHART_START.y) * 12 + d.getMonth() - CHART_START.m; }
+function monthlyActual() {
+  const arr = state.monthlyBase.slice();
+  state.expenses.forEach(e => { const i = monthIndex(e.date); if (i >= 0 && i < arr.length) arr[i] += e.amount; });
+  return arr;
+}
+function payroll() {
+  const week = state.workers.reduce((s, w) => s + w.dailyWage * w.daysWeek, 0);
+  const month = state.workers.reduce((s, w) => s + w.dailyWage * w.daysMonth, 0);
+  return { week, month };
+}
+function progressStats() {
+  const tw = state.milestones.reduce((s, m) => s + m.w, 0) || 1;
+  let act = 0, plan = 0;
+  state.milestones.forEach(m => {
+    act += m.w * m.progress / 100;
+    const s = D(m.pStart), e = D(m.pEnd);
+    plan += m.w * (e > s ? clamp((TODAY - s) / (e - s), 0, 1) : (TODAY >= e ? 1 : 0));
+  });
+  return { act: act / tw * 100, plan: plan / tw * 100 };
+}
+function msStatus(m) {
+  if (m.progress >= 100) return ['done', 'مكتملة', 'ok'];
+  if (TODAY > D(m.pEnd)) return ['late', 'متأخرة', 'bad'];
+  if (m.progress > 0 || TODAY >= D(m.pStart)) return ['active', 'قيد التنفيذ', 'warn'];
+  return ['todo', 'لم تبدأ', 'mute'];
+}
+function msDelay(m) {
+  const end = m.aEnd || m.fEnd;
+  if (!end) return null;
+  return daysBetween(D(end), D(m.pEnd));
+}
+function materialStatus(m) {
+  const days = m.daily > 0 ? m.qty / m.daily : Infinity;
+  let key = 'ok';
+  if (m.qty < m.min * 0.5 || days <= m.lead) key = 'critical';
+  else if (m.qty < m.min || days <= m.lead + 3) key = 'low';
+  const map = { ok: ['متوفر', 'ok'], low: ['منخفض', 'warn'], critical: ['حرج', 'bad'] };
+  return { key, label: map[key][0], cls: map[key][1], days };
+}
+function suggestQty(m) {
+  const target = Math.max(m.min * 2, m.daily * (m.lead + 14));
+  return Math.max(Math.ceil((target - m.qty) * 10) / 10, 1);
+}
+function evm() {
+  const bt = budgetTotals(), ps = progressStats();
+  const EV = bt.budget * ps.act / 100, AC = bt.spent;
+  const CPI = AC > 0 ? EV / AC : 1;
+  const EAC = ps.act > 0 && CPI > 0 ? bt.budget / CPI : bt.budget;
+  return { EV, AC, CPI, EAC, VAC: bt.budget - EAC, SPI: ps.plan > 0 ? ps.act / ps.plan : 1, bt, ps };
+}
+function safetyDays() {
+  const inj = state.log.filter(l => l.injuries > 0).map(l => D(l.date)).sort((a, b) => b - a);
+  const first = state.milestones.length ? D(state.milestones.map(m => m.pStart).sort()[0]) : TODAY;
+  const ref = inj[0] || first;
+  return { days: Math.max(0, daysBetween(TODAY, ref)), last: inj[0] || null };
+}
+function computeRisks() {
+  const ps = progressStats(), items = [];
+  const ms = [...state.milestones].sort((a, b) => D(a.pStart) - D(b.pStart));
+  const start = ms.length ? D(ms[0].pStart) : TODAY;
+  const end = ms.length ? new Date(Math.max(...ms.map(m => D(m.pEnd)))) : TODAY;
+  let maxMs = 0;
+  ms.forEach(m => {
+    const st = msStatus(m)[0];
+    if (st === 'done') return;
+    const dl = msDelay(m);
+    const lateNow = st === 'late';
+    const days = dl !== null && dl > 0 ? dl : (lateNow ? daysBetween(TODAY, D(m.pEnd)) : 0);
+    if (days > 0) {
+      maxMs = Math.max(maxMs, days);
+      items.push({ lvl: lateNow || days > 14 ? 'high' : 'med', text: `مرحلة «${esc(m.name)}»: تأخر ${lateNow ? 'حالي' : 'متوقع'} بحوالي ${days} يوم` });
+    }
+  });
+  const totalDur = daysBetween(end, start);
+  const spi = ps.plan > 0 ? ps.act / ps.plan : 1;
+  const spiDelay = spi < 1 ? Math.round(totalDur / spi - totalDur) : 0;
+  const delayDays = Math.max(spiDelay, maxMs, 0);
+  const projectedEnd = new Date(end.getTime() + delayDays * DAY);
+
+  const matRisk = state.materials.filter(m => materialStatus(m).key !== 'ok');
+  if (matRisk.length) items.push({ lvl: matRisk.some(m => materialStatus(m).key === 'critical') ? 'high' : 'med', text: `${matRisk.length} مواد قد تعطّل الأشغال إن لم تُطلب: ${matRisk.map(m => esc(m.name)).join('، ')}` });
+  const down = state.equipment.filter(e => e.status === 'stopped');
+  if (down.length) items.push({ lvl: 'med', text: `${down.length} معدات متوقفة: ${down.map(e => esc(e.name)).join('، ')}` });
+  const absent = state.workers.filter(w => w.status === 'absent').length;
+  if (state.workers.length && absent / state.workers.length >= 0.15) items.push({ lvl: 'med', text: `نقص في اليد العاملة: ${Math.round(absent / state.workers.length * 100)}% من العمال غائبون اليوم` });
+  const ev = evm();
+  if (ev.VAC < 0) items.push({ lvl: -ev.VAC > ev.bt.budget * 0.05 ? 'high' : 'med', text: `تجاوز متوقع للميزانية بمقدار ${mil(-ev.VAC)}` });
+  const level = items.some(i => i.lvl === 'high') ? 'high' : items.length ? 'med' : 'low';
+  return { items, delayDays, projectedEnd, plannedEnd: end, level, spi };
+}
+function getAlerts() {
+  const a = [];
+  state.materials.forEach(m => {
+    const s = materialStatus(m);
+    if (s.key === 'ok') return;
+    const pend = state.orders.some(o => o.matId === m.id && o.status === 'pending');
+    a.push({ cls: s.key === 'critical' ? 'bg-brick' : 'bg-hivis', text: `مخزون ${esc(m.name)} ${s.label}: ${num(m.qty)} ${esc(m.unit)}${isFinite(s.days) ? ` — يكفي ${Math.floor(s.days)} يوم` : ''}${pend ? ' (طلب توريد قيد الانتظار)' : ''}`, go: 'materials' });
+  });
+  state.equipment.filter(e => e.status !== 'running').forEach(e => a.push({ cls: e.status === 'stopped' ? 'bg-brick' : 'bg-hivis', text: `${esc(e.name)} (${esc(e.code)}) ${EQ_STATUS[e.status][0]}`, go: 'equipment' }));
+  state.maint.filter(m => !m.done && daysBetween(D(m.date), TODAY) <= 7).sort((x, y) => x.date.localeCompare(y.date)).forEach(m => {
+    const d = daysBetween(D(m.date), TODAY);
+    a.push({ cls: d < 0 ? 'bg-brick' : 'bg-hivis', text: `${m.type} لـ ${esc(eqName(m.eqId))}: ${d < 0 ? `متأخرة ${-d} يوم` : d === 0 ? 'اليوم' : `بعد ${d} يوم`}`, go: 'equipment' });
+  });
+  state.milestones.filter(m => msStatus(m)[0] === 'late').forEach(m => a.push({ cls: 'bg-brick', text: `مرحلة «${esc(m.name)}» متأخرة عن موعدها المخطط`, go: 'progress' }));
+  const absent = state.workers.filter(w => w.status === 'absent').length;
+  if (absent) a.push({ cls: 'bg-hivis', text: `${absent} عمال غائبون اليوم`, go: 'workers' });
+  const ev = evm();
+  if (ev.VAC < 0) a.push({ cls: 'bg-brick', text: `بهذا المعدل ستتجاوز الميزانية بـ ${mil(-ev.VAC)}`, go: 'budget' });
+  return a;
+}
+
+/* =====================================================
+   عناصر واجهة صغيرة
+   ===================================================== */
+let firstPaint = true;
+const ICONS = {
+  edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  trash: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/>'
+};
+const svgI = (p, s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+
+function rowActions(col, id, label, extra = '') {
+  return `<div class="flex items-center gap-1 justify-end">${extra}
+    <button class="icon-btn" data-act="edit" data-col="${col}" data-id="${id}" title="تعديل" aria-label="تعديل ${esc(label)}">${svgI(ICONS.edit)}</button>
+    <button class="icon-btn danger" data-act="del" data-col="${col}" data-id="${id}" title="حذف" aria-label="حذف ${esc(label)}">${svgI(ICONS.trash)}</button></div>`;
+}
+function cell(col, id, field, val, type = 'text', cls = '', attrs = '') {
+  const t = type === 'number' ? 'number' : type;
+  return `<input class="cell ${/\bw-/.test(cls) ? '' : 'w-full'} ${cls}" data-col="${col}" data-id="${id}" data-field="${field}" type="${t}" ${type === 'number' ? 'step="any"' : ''} value="${esc(val ?? '')}" ${attrs}>`;
+}
+function hazardBar(actual, planned) {
+  return `
+  <div class="relative h-10 bg-steel-100 border border-steel-200 rounded-sm overflow-hidden"
+       role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(actual)}" aria-label="نسبة تقدم المشروع">
+    <div class="hazard bar-fill h-full ${firstPaint ? 'grow-in' : ''}" style="width:${clamp(actual, 0, 100)}%"></div>
+    <div class="absolute inset-y-0 w-[3px] bg-steel-900" style="right:calc(${clamp(planned, 0, 100)}% - 1px)"></div>
+  </div>`;
+}
+function stackBar(parts) {
+  return `<div class="flex h-2 rounded-sm overflow-hidden bg-steel-100">${parts.map(p => `<div class="${p.cls}" style="width:${clamp(p.pct, 0, 100)}%"></div>`).join('')}</div>`;
+}
+function statCard(label, value, sub, extra = '') {
+  return `<div class="bg-white border border-steel-200 rounded-md p-4">
+    <p class="text-sm text-steel-500">${label}</p>
+    <p class="text-2xl font-bold mt-1 tabular-nums">${value}</p>
+    ${extra ? `<div class="mt-3">${extra}</div>` : ''}
+    ${sub ? `<p class="text-xs text-steel-500 mt-2">${sub}</p>` : ''}
+  </div>`;
+}
+const emptyRow = (cols, msg) => `<tr><td colspan="${cols}" class="text-center text-steel-500 py-8">${msg}</td></tr>`;
+const panelHead = (title, actions = '') => `<div class="p-4 border-b border-steel-200 flex flex-wrap items-center justify-between gap-2"><h2 class="font-bold">${title}</h2><div class="flex gap-2">${actions}</div></div>`;
+const addBtn = (col, label) => `<button class="btn btn-primary" data-act="add" data-col="${col}">${label}</button>`;
+const relDays = d => d < 0 ? `متأخرة ${-d} يوم` : d === 0 ? 'اليوم' : `بعد ${d} يوم`;
+
+/* =====================================================
+   1) نظرة عامة
+   ===================================================== */
+function renderOverview() {
+  const w = state.workers;
+  const present = w.filter(x => x.status === 'present').length;
+  const late = w.filter(x => x.status === 'late').length;
+  const absent = w.filter(x => x.status === 'absent').length;
+  const bt = budgetTotals(), ev = evm(), ps = ev.ps, rk = computeRisks(), sf = safetyDays();
+  const lowMat = state.materials.filter(m => materialStatus(m).key !== 'ok');
+  const alerts = getAlerts();
+  const gap = ps.plan - ps.act;
+  const N = w.length || 1;
+
+  $('#overview').innerHTML = `
+    <div class="bg-white border border-steel-200 rounded-md p-5 sm:p-6">
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+        <div>
+          <p class="text-sm text-steel-500">نسبة تقدم المشروع</p>
+          <p class="text-5xl sm:text-6xl font-bold tabular-nums leading-none mt-1">${Math.round(ps.act)}<span class="text-3xl text-steel-500 font-medium">%</span></p>
+        </div>
+        <p class="text-sm text-steel-500 max-w-xs">
+          المخطط حتى اليوم ${Math.round(ps.plan)}%.
+          ${gap > 0.5 ? `المشروع متأخر بمقدار <b class="text-brick">${gap.toFixed(1)}</b> نقطة.` : 'المشروع في الموعد المحدد.'}
+        </p>
+      </div>
+      ${hazardBar(ps.act, ps.plan)}
+      <p class="text-xs text-steel-500 mt-2 flex items-center gap-2"><i class="inline-block w-[3px] h-3 bg-steel-900"></i> الخط الأسود يمثل الإنجاز المخطط حتى اليوم</p>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-4">
+      ${statCard('عدد العمال', `${w.length} <span class="text-sm font-medium text-steel-500">عامل</span>`,
+        `${present + late} في الموقع اليوم · ${absent} غائبون`,
+        stackBar([{ cls: 'bg-rebar', pct: present / N * 100 }, { cls: 'bg-hivis', pct: late / N * 100 }, { cls: 'bg-brick', pct: absent / N * 100 }]))}
+      ${statCard('الميزانية والمصاريف', mil(bt.spent), `من ${mil(bt.budget)} · المتبقي ${mil(bt.left)}`,
+        stackBar([{ cls: bt.pct > 100 ? 'bg-brick' : 'bg-hivis', pct: bt.pct }]))}
+      ${statCard('مواد البناء المتوفرة', `${state.materials.length} <span class="text-sm font-medium text-steel-500">أصناف</span>`,
+        lowMat.length ? `${lowMat.length} أصناف تحتاج طلب توريد` : 'كل الأصناف في وضع جيد',
+        stackBar([{ cls: 'bg-rebar', pct: (state.materials.length - lowMat.length) / (state.materials.length || 1) * 100 }, { cls: 'bg-brick', pct: lowMat.length / (state.materials.length || 1) * 100 }]))}
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-4">
+      ${statCard('التكلفة المتوقعة عند الإنجاز', mil(ev.EAC), ev.VAC < 0 ? `<span class="text-brick font-semibold">تجاوز متوقع ${mil(-ev.VAC)}</span> عن الميزانية` : `<span class="text-rebar font-semibold">ضمن الميزانية</span> بوفر ${mil(ev.VAC)}`)}
+      ${statCard('التسليم المتوقع', fdate(rk.projectedEnd), rk.delayDays > 0 ? `<span class="text-brick font-semibold">تأخر متوقع ${rk.delayDays} يوم</span> عن ${fdate(rk.plannedEnd)}` : `<span class="text-rebar font-semibold">في الموعد</span> (${fdate(rk.plannedEnd)})`)}
+      ${statCard('أيام بلا إصابة', `${sf.days} <span class="text-sm font-medium text-steel-500">يوم</span>`, sf.last ? `آخر إصابة بتاريخ ${fdate(sf.last)}` : 'لا توجد إصابات مسجّلة')}
+    </div>
+
+    <div class="grid lg:grid-cols-2 gap-5">
+      <div class="bg-white border border-steel-200 rounded-md">
+        ${panelHead('تنبيهات تحتاج متابعة', `<span class="badge ${alerts.length ? 'bad' : 'ok'}">${alerts.length}</span>`)}
+        <ul class="divide-y divide-steel-100">
+          ${alerts.length ? alerts.map(a => `<li><button class="w-full flex items-start gap-3 px-4 py-3 text-sm text-start hover:bg-steel-50" data-act="goto" data-target="${a.go}"><i class="mt-1.5 w-2 h-2 rounded-full shrink-0 ${a.cls}"></i><span>${a.text}</span></button></li>`).join('')
+            : '<li class="px-4 py-6 text-sm text-steel-500">لا توجد تنبيهات حالياً.</li>'}
+        </ul>
+      </div>
+      <div class="bg-white border border-steel-200 rounded-md">
+        ${panelHead('المراحل الجارية')}
+        <ul class="divide-y divide-steel-100">
+          ${state.milestones.filter(m => ['active', 'late'].includes(msStatus(m)[0])).map(m => `
+            <li class="px-4 py-3">
+              <div class="flex items-center justify-between gap-3 text-sm mb-2">
+                <span class="font-medium">${esc(m.name)}</span>
+                <span class="badge ${msStatus(m)[2]}">${msStatus(m)[1]}</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="flex-1">${stackBar([{ cls: 'bg-hivis', pct: m.progress }])}</div>
+                <span class="text-xs tabular-nums text-steel-500 w-9 text-start">${m.progress}%</span>
+              </div>
+            </li>`).join('') || '<li class="px-4 py-6 text-sm text-steel-500">لا توجد مراحل جارية.</li>'}
+        </ul>
+      </div>
+    </div>`;
+}
+
+/* =====================================================
+   2) العمال
+   ===================================================== */
+function populateTrades() {
+  const sel = $('#wkTrade'), cur = sel.value;
+  const trades = [...new Set(state.workers.map(w => w.trade).filter(Boolean))];
+  sel.innerHTML = `<option value="">كل المهن</option>` + trades.map(t => `<option ${t === cur ? 'selected' : ''}>${esc(t)}</option>`).join('');
+  $('#tradeList').innerHTML = [...new Set([...TRADES, ...trades])].map(t => `<option value="${esc(t)}">`).join('');
+}
+function renderWorkers() {
+  populateTrades();
+  const q = $('#wkSearch').value.trim(), t = $('#wkTrade').value;
+  const list = state.workers.filter(w => (!q || w.name.includes(q)) && (!t || w.trade === t));
+  const all = state.workers, pr = payroll();
+  const avg = all.length ? all.reduce((s, w) => s + w.prod, 0) / all.length : 0;
+
+  $('#wkSummary').innerHTML =
+    statCard('في الموقع اليوم', `${all.filter(w => w.status !== 'absent').length} / ${all.length}`, `${all.filter(w => w.status === 'late').length} متأخرون · ${all.filter(w => w.status === 'absent').length} غائبون`) +
+    statCard('أجور الأسبوع', money(pr.week), 'حسب أيام الحضور') +
+    statCard('أجور الشهر', money(pr.month), 'حسب أيام الحضور') +
+    statCard('متوسط الإنتاجية', `${Math.round(avg)}%`, '');
+
+  $('#wkBody').innerHTML = list.map(w => {
+    const bar = w.prod >= 85 ? 'bg-rebar' : w.prod >= 70 ? 'bg-hivis' : 'bg-brick';
+    return `<tr>
+      <td class="min-w-[10rem]">${cell('workers', w.id, 'name', w.name, 'text', 'font-medium')}</td>
+      <td class="min-w-[8rem]">${cell('workers', w.id, 'trade', w.trade, 'text', '', 'list="tradeList"')}</td>
+      <td>${cell('workers', w.id, 'dailyWage', w.dailyWage, 'number', 'w-24')}</td>
+      <td><div class="flex items-center gap-2">
+        <select class="cell-select" data-act="wstatus" data-id="${w.id}" aria-label="حالة ${esc(w.name)}">
+          ${Object.entries(WORKER_STATUS).map(([k, v]) => `<option value="${k}" ${k === w.status ? 'selected' : ''}>${v[0]}</option>`).join('')}
+        </select><span class="text-xs tabular-nums text-steel-500">${w.checkIn || '—'}</span></div></td>
+      <td><div class="flex items-center gap-2 min-w-[8rem]">
+        <div class="flex-1 h-2 bg-steel-100 rounded-sm overflow-hidden"><div class="h-full ${bar}" style="width:${clamp(w.prod, 0, 100)}%"></div></div>
+        ${cell('workers', w.id, 'prod', w.prod, 'number', 'w-14')}</div></td>
+      <td>${cell('workers', w.id, 'daysWeek', w.daysWeek, 'number', 'w-14')}</td>
+      <td>${cell('workers', w.id, 'daysMonth', w.daysMonth, 'number', 'w-14')}</td>
+      <td class="tabular-nums whitespace-nowrap">${money(w.dailyWage * w.daysWeek)}</td>
+      <td class="tabular-nums whitespace-nowrap">${money(w.dailyWage * w.daysMonth)}</td>
+      <td>${rowActions('workers', w.id, w.name)}</td>
+    </tr>`;
+  }).join('') || emptyRow(10, 'لا يوجد عمال مطابقون. اضغط «إضافة عامل».');
+}
+function setWorkerStatus(w, st) {
+  const today = iso(TODAY);
+  if (st === 'absent') {
+    if (w.lastCheck === today) { w.daysWeek = Math.max(0, w.daysWeek - 1); w.daysMonth = Math.max(0, w.daysMonth - 1); w.lastCheck = null; }
+    w.checkIn = null;
+  } else {
+    if (!w.checkIn || w.lastCheck !== today) { const n = new Date(); w.checkIn = `${pad(n.getHours())}:${pad(n.getMinutes())}`; }
+    if (w.lastCheck !== today) { w.daysWeek = Math.min(7, w.daysWeek + 1); w.daysMonth += 1; w.lastCheck = today; }
+  }
+  w.status = st;
+}
+
+/* =====================================================
+   3) المعدات والصيانة
+   ===================================================== */
+let cal = { y: 2026, m: 8 };
+function renderCalendar() {
+  const first = new Date(cal.y, cal.m, 1), n = new Date(cal.y, cal.m + 1, 0).getDate(), dow = first.getDay();
+  const ev = state.maint.filter(e => { const d = D(e.date); return d.getFullYear() === cal.y && d.getMonth() === cal.m; });
+  let cells = '';
+  for (let i = 0; i < dow; i++) cells += '<div></div>';
+  for (let d = 1; d <= n; d++) {
+    const ds = `${cal.y}-${pad(cal.m + 1)}-${pad(d)}`;
+    const es = ev.filter(e => e.date === ds);
+    const dot = es.length ? `<i class="cal-dot ${es.some(e => !e.done) ? (D(ds) < TODAY ? 'late' : 'due') : 'done'}"></i>` : '';
+    const title = es.length ? es.map(e => `${eqName(e.eqId)} — ${e.type}`).join('، ') : 'اضغط لجدولة صيانة في هذا اليوم';
+    cells += `<button class="cal-day ${ds === iso(TODAY) ? 'today' : ''}" data-act="calday" data-date="${ds}" title="${esc(title)}" aria-label="${d} ${MONTHS[cal.m]} ${esc(title)}"><span>${d}</span>${dot}</button>`;
+  }
+  const heads = ['أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'].map(h => `<div class="text-xs text-steel-500 text-center pb-1">${h}</div>`).join('');
+  return `
+    <div class="flex items-center justify-between mb-3">
+      <button class="icon-btn" data-act="calnav" data-dir="-1" aria-label="الشهر السابق">${svgI('<path d="M9 6l6 6-6 6"/>', 18)}</button>
+      <p class="font-bold">${MONTHS[cal.m]} ${cal.y}</p>
+      <button class="icon-btn" data-act="calnav" data-dir="1" aria-label="الشهر التالي">${svgI('<path d="M15 6l-6 6 6 6"/>', 18)}</button>
+    </div>
+    <div class="grid grid-cols-7 gap-1">${heads}${cells}</div>
+    <p class="text-xs text-steel-500 mt-3 flex flex-wrap gap-x-4 gap-y-1">
+      <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full bg-hivis"></i>قادمة</span>
+      <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full bg-brick"></i>متأخرة</span>
+      <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full bg-rebar"></i>منجزة</span></p>`;
+}
+function nextMaint(eqId) {
+  return state.maint.filter(m => m.eqId === eqId && !m.done).sort((a, b) => a.date.localeCompare(b.date))[0];
+}
+function renderEquipment() {
+  const c = s => state.equipment.filter(e => e.status === s).length;
+  const upcoming = state.maint.filter(m => !m.done).sort((a, b) => a.date.localeCompare(b.date));
+  $('#equipment').innerHTML = `
+    <div class="grid grid-cols-3 gap-3">${statCard('تعمل', c('running'), '') + statCard('تحت الصيانة', c('maintenance'), '') + statCard('متوقفة', c('stopped'), '')}</div>
+
+    <div class="grid lg:grid-cols-5 gap-5">
+      <div class="lg:col-span-2 bg-white border border-steel-200 rounded-md p-5">${renderCalendar()}</div>
+      <div class="lg:col-span-3 bg-white border border-steel-200 rounded-md">
+        ${panelHead('جدول الصيانة القادمة', `<button class="btn btn-primary" data-act="add" data-col="maint">جدولة صيانة</button>`)}
+        <ul class="divide-y divide-steel-100 max-h-[22rem] overflow-y-auto">
+          ${upcoming.map(m => {
+            const d = daysBetween(D(m.date), TODAY);
+            return `<li class="px-4 py-3 flex items-center gap-3 text-sm">
+              <span class="badge ${d < 0 ? 'bad' : d <= 7 ? 'warn' : 'mute'} w-28 justify-center">${relDays(d)}</span>
+              <div class="flex-1 min-w-0"><p class="font-medium truncate">${esc(eqName(m.eqId))}</p><p class="text-xs text-steel-500">${esc(m.type)} · ${fs(m.date)}</p></div>
+              <button class="btn btn-ghost btn-sm" data-act="maintdone" data-id="${m.id}">تمت</button>
+              ${rowActions('maint', m.id, eqName(m.eqId))}
+            </li>`;
+          }).join('') || '<li class="px-4 py-8 text-center text-sm text-steel-500">لا توجد صيانة مجدولة.</li>'}
+        </ul>
+      </div>
+    </div>
+
+    <div class="bg-white border border-steel-200 rounded-md">
+      ${panelHead('قائمة المعدات', addBtn('equipment', 'إضافة معدة'))}
+      <div class="overflow-x-auto">
+        <table class="data w-full min-w-[860px]">
+          <thead><tr><th>المعدة</th><th>الرمز</th><th>الحالة</th><th>ساعات التشغيل</th><th>الصيانة القادمة</th><th></th></tr></thead>
+          <tbody>${state.equipment.map(e => {
+            const nm = nextMaint(e.id);
+            return `<tr>
+              <td class="min-w-[9rem]">${cell('equipment', e.id, 'name', e.name, 'text', 'font-medium')}</td>
+              <td>${cell('equipment', e.id, 'code', e.code, 'text', 'w-24')}</td>
+              <td><div class="flex items-center gap-2"><span class="badge ${EQ_STATUS[e.status][1]}">${EQ_STATUS[e.status][0]}</span>
+                <select class="cell-select" data-act="setfield" data-col="equipment" data-id="${e.id}" data-field="status" aria-label="تغيير حالة ${esc(e.name)}">
+                  ${Object.entries(EQ_STATUS).map(([k, v]) => `<option value="${k}" ${k === e.status ? 'selected' : ''}>${v[0]}</option>`).join('')}</select></div></td>
+              <td>${cell('equipment', e.id, 'hours', e.hours, 'number', 'w-24')}</td>
+              <td class="tabular-nums whitespace-nowrap">${nm ? `${fs(nm.date)} <span class="text-xs text-steel-500">(${esc(nm.type)})</span>` : '<span class="text-steel-500">غير مجدولة</span>'}</td>
+              <td>${rowActions('equipment', e.id, e.name, `<button class="btn btn-ghost btn-sm" data-act="schedule" data-id="${e.id}">جدولة الصيانة</button>`)}</td>
+            </tr>`;
+          }).join('') || emptyRow(6, 'لا توجد معدات. اضغط «إضافة معدة».')}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+/* =====================================================
+   4) مواد البناء
+   ===================================================== */
+function renderMaterials() {
+  const low = state.materials.filter(m => materialStatus(m).key !== 'ok');
+  const totalVal = state.materials.reduce((s, m) => s + m.qty * m.price, 0);
+  $('#materials').innerHTML = `
+    ${low.length ? `<div class="border border-brick/30 bg-brick-soft rounded-md px-4 py-3 flex gap-3 items-start" role="alert">
+      <svg class="shrink-0 mt-0.5 text-brick" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+      <p class="text-sm text-[#7A2B19]"><b>${low.length} أصناف تحتاج طلب توريد:</b> ${low.map(m => esc(m.name)).join('، ')}. يُحسب التنبيه من الحد الأدنى ومن سرعة الاستهلاك ومدة التوريد.</p></div>` : ''}
+    <div class="bg-white border border-steel-200 rounded-md">
+      ${panelHead(`المخزون — قيمته ${money(totalVal)}`, addBtn('materials', 'إضافة مادة'))}
+      <div class="overflow-x-auto">
+        <table class="data w-full min-w-[1150px]">
+          <thead><tr><th>المادة</th><th>الكمية المتوفرة</th><th>الحد الأدنى</th><th>الاستهلاك اليومي</th><th>يكفي لمدة</th><th>الحالة</th><th>سعر الوحدة</th><th>قيمة المخزون</th><th>المورّد</th><th></th></tr></thead>
+          <tbody>${state.materials.map(m => {
+            const s = materialStatus(m);
+            const out = isFinite(s.days) ? new Date(TODAY.getTime() + s.days * DAY) : null;
+            return `<tr>
+              <td class="min-w-[10rem]">${cell('materials', m.id, 'name', m.name, 'text', 'font-medium')}<p class="text-xs text-steel-500 px-1.5">${esc(m.unit)}</p></td>
+              <td>${cell('materials', m.id, 'qty', m.qty, 'number', 'w-24')}</td>
+              <td>${cell('materials', m.id, 'min', m.min, 'number', 'w-20')}</td>
+              <td>${cell('materials', m.id, 'daily', m.daily, 'number', 'w-20')}</td>
+              <td class="whitespace-nowrap tabular-nums">${out ? `<b>${Math.floor(s.days)} يوم</b><p class="text-xs text-steel-500">حتى ${fdate(out)}</p>` : '<span class="text-steel-500">—</span>'}</td>
+              <td><span class="badge ${s.cls}">${s.label}</span></td>
+              <td>${cell('materials', m.id, 'price', m.price, 'number', 'w-24')}</td>
+              <td class="tabular-nums whitespace-nowrap">${money(m.qty * m.price)}</td>
+              <td class="text-xs text-steel-500 min-w-[8rem]">${esc(supName(m.supplierId))}<br>توريد خلال ${m.lead} يوم</td>
+              <td>${rowActions('materials', m.id, m.name, `<button class="btn ${s.key === 'ok' ? 'btn-ghost' : 'btn-primary'} btn-sm" data-act="order" data-id="${m.id}">اطلب</button><button class="btn btn-ghost btn-sm" data-act="restock" data-id="${m.id}">+ مخزون</button>`)}</td>
+            </tr>`;
+          }).join('') || emptyRow(10, 'لا توجد مواد. اضغط «إضافة مادة».')}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+/* =====================================================
+   5) الموردون وطلبات التوريد
+   ===================================================== */
+function orderText(o) {
+  const m = matOf(o.matId) || {};
+  const need = new Date(D(o.date).getTime() + (m.lead || 0) * DAY);
+  return `طلب توريد — ${state.project.name}\nالمادة: ${m.name}\nالكمية: ${num(o.qty)} ${m.unit}\nتاريخ الطلب: ${fs(o.date)}\nالتسليم المطلوب قبل: ${fdate(need)}\nالمسؤول: ${state.project.manager}`;
+}
+function renderSuppliers() {
+  const pending = state.orders.filter(o => o.status === 'pending');
+  $('#suppliers').innerHTML = `
+    <div class="grid grid-cols-3 gap-3">
+      ${statCard('الموردون', state.suppliers.length, '')}
+      ${statCard('طلبات معلّقة', pending.length, `بقيمة ${money(pending.reduce((s, o) => s + o.qty * ((matOf(o.matId) || {}).price || 0), 0))}`)}
+      ${statCard('طلبات مستلمة', state.orders.length - pending.length, '')}
+    </div>
+    <div class="bg-white border border-steel-200 rounded-md">
+      ${panelHead('طلبات التوريد', addBtn('orders', 'طلب جديد'))}
+      <div class="overflow-x-auto">
+        <table class="data w-full min-w-[860px]">
+          <thead><tr><th>التاريخ</th><th>المادة</th><th>الكمية</th><th>القيمة التقديرية</th><th>المورّد</th><th>الحالة</th><th></th></tr></thead>
+          <tbody>${[...state.orders].sort((a, b) => b.date.localeCompare(a.date)).map(o => {
+            const m = matOf(o.matId) || { name: '—', unit: '', price: 0 };
+            const sup = byId('suppliers', o.supplierId);
+            const done = o.status === 'received';
+            return `<tr>
+              <td class="tabular-nums text-steel-500">${fs(o.date)}</td>
+              <td class="font-medium">${esc(m.name)}</td>
+              <td class="tabular-nums">${num(o.qty)} <span class="text-xs text-steel-500">${esc(m.unit)}</span></td>
+              <td class="tabular-nums">${money(o.qty * m.price)}</td>
+              <td>${esc(sup ? sup.name : '—')}</td>
+              <td><span class="badge ${done ? 'ok' : 'warn'}">${done ? 'تم الاستلام' : 'قيد الانتظار'}</span></td>
+              <td>${rowActions('orders', o.id, m.name, `${done ? '' : `<button class="btn btn-primary btn-sm" data-act="receive" data-id="${o.id}">استلام</button>`}
+                <button class="btn btn-ghost btn-sm" data-act="copyorder" data-id="${o.id}">نسخ الطلب</button>${sup ? `<a class="btn btn-ghost btn-sm" href="tel:${esc(sup.phone.replace(/\s/g, ''))}">اتصال</a>` : ''}`)}</td>
+            </tr>`;
+          }).join('') || emptyRow(7, 'لا توجد طلبات. اضغط «اطلب» بجانب أي مادة أو «طلب جديد».')}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="bg-white border border-steel-200 rounded-md">
+      ${panelHead('الموردون', addBtn('suppliers', 'إضافة مورّد'))}
+      <div class="overflow-x-auto">
+        <table class="data w-full min-w-[700px]">
+          <thead><tr><th>المورّد</th><th>الهاتف</th><th>ما يوفّره</th><th>مواد مرتبطة به</th><th></th></tr></thead>
+          <tbody>${state.suppliers.map(s => `<tr>
+            <td class="min-w-[12rem]">${cell('suppliers', s.id, 'name', s.name, 'text', 'font-medium')}</td>
+            <td>${cell('suppliers', s.id, 'phone', s.phone, 'text', 'w-40 tabular-nums')}</td>
+            <td>${cell('suppliers', s.id, 'notes', s.notes)}</td>
+            <td class="text-xs text-steel-500">${state.materials.filter(m => m.supplierId === s.id).map(m => esc(m.name)).join('، ') || '—'}</td>
+            <td>${rowActions('suppliers', s.id, s.name, `<a class="btn btn-ghost btn-sm" href="tel:${esc(s.phone.replace(/\s/g, ''))}">اتصال</a>`)}</td>
+          </tr>`).join('') || emptyRow(5, 'لا يوجد موردون.')}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+/* =====================================================
+   6) الميزانية والمصاريف
+   ===================================================== */
+function renderBudget() {
+  const ev = evm(), bt = ev.bt;
+  $('#budget').innerHTML = `
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      ${statCard('الميزانية المخططة', mil(bt.budget), '')}
+      ${statCard('المصاريف الفعلية', mil(bt.spent), '')}
+      ${statCard('المتبقي', mil(bt.left), '')}
+      ${statCard('نسبة الاستهلاك', `${bt.pct.toFixed(1)}%`, '', stackBar([{ cls: bt.pct > 100 ? 'bg-brick' : 'bg-hivis', pct: bt.pct }]))}
+    </div>
+
+    <div class="grid xl:grid-cols-5 gap-5">
+      <div class="xl:col-span-3 bg-white border border-steel-200 rounded-md p-5">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <h2 class="font-bold">المصاريف الشهرية مقابل المخطط</h2>
+          <div class="flex items-center gap-4 text-xs text-steel-500">
+            <span class="flex items-center gap-1.5"><i class="w-3 h-3 bg-steel-300 inline-block"></i>المخطط</span>
+            <span class="flex items-center gap-1.5"><i class="w-3 h-3 bg-hivis inline-block"></i>الفعلي</span>
+            <button class="btn btn-ghost btn-sm" data-act="editplan">تعديل المخطط الشهري</button>
+          </div>
+        </div>
+        ${cashChartSVG()}
+      </div>
+
+      <div class="xl:col-span-2 bg-white border border-steel-200 rounded-md p-5">
+        <h2 class="font-bold mb-1">توقّع الميزانية النهائية</h2>
+        <p class="text-xs text-steel-500 mb-4">يقارن ما صُرف بما أُنجز فعلاً (طريقة القيمة المكتسبة).</p>
+        <div class="rounded-md px-4 py-3 mb-4 text-sm ${ev.VAC < 0 ? 'bg-brick-soft text-[#7A2B19]' : 'bg-rebar-soft text-[#1F6B49]'}">
+          ${ev.VAC < 0 ? `بهذا المعدل ستتجاوز الميزانية بـ <b>${mil(-ev.VAC)}</b> (التكلفة النهائية المتوقعة ${mil(ev.EAC)}).`
+                       : `الإنفاق ضمن الميزانية، والوفر المتوقع <b>${mil(ev.VAC)}</b>.`}
+        </div>
+        <dl class="text-sm divide-y divide-steel-100">
+          <div class="flex justify-between py-2"><dt class="text-steel-500">القيمة المكتسبة (ما أُنجز)</dt><dd class="tabular-nums font-semibold">${mil(ev.EV)}</dd></div>
+          <div class="flex justify-between py-2"><dt class="text-steel-500">التكلفة الفعلية (ما صُرف)</dt><dd class="tabular-nums font-semibold">${mil(ev.AC)}</dd></div>
+          <div class="flex justify-between py-2"><dt class="text-steel-500">مؤشر الأداء المالي</dt><dd class="tabular-nums font-semibold ${ev.CPI < 1 ? 'text-brick' : 'text-rebar'}">${ev.CPI.toFixed(2)}</dd></div>
+          <div class="flex justify-between py-2"><dt class="text-steel-500">مؤشر الأداء الزمني</dt><dd class="tabular-nums font-semibold ${ev.SPI < 1 ? 'text-brick' : 'text-rebar'}">${ev.SPI.toFixed(2)}</dd></div>
+        </dl>
+        <p class="text-xs text-steel-500 mt-3">أقل من 1.00 تعني أن الصرف أسرع من الإنجاز (مالياً) أو أن العمل أبطأ من المخطط (زمنياً).</p>
+      </div>
+    </div>
+
+    <div class="bg-white border border-steel-200 rounded-md">
+      ${panelHead('البنود والميزانية', addBtn('categories', 'إضافة بند'))}
+      <div class="overflow-x-auto">
+        <table class="data w-full min-w-[760px]">
+          <thead><tr><th>البند</th><th>الميزانية</th><th>المصروف</th><th>المتبقي</th><th>الاستهلاك</th><th></th></tr></thead>
+          <tbody>${state.categories.map(c => {
+            const sp = catSpent(c), p = c.budget ? sp / c.budget * 100 : 0;
+            const bar = p > 100 ? 'bg-brick' : p > 85 ? 'bg-hivis' : 'bg-rebar';
+            return `<tr>
+              <td class="min-w-[8rem]">${cell('categories', c.id, 'name', c.name, 'text', 'font-medium')}</td>
+              <td>${cell('categories', c.id, 'budget', c.budget, 'number', 'w-32')}</td>
+              <td class="tabular-nums whitespace-nowrap">${money(sp)}</td>
+              <td class="tabular-nums whitespace-nowrap ${c.budget - sp < 0 ? 'text-brick font-semibold' : ''}">${money(c.budget - sp)}</td>
+              <td><div class="flex items-center gap-2 min-w-[9rem]"><div class="flex-1 h-2.5 bg-steel-100 rounded-sm overflow-hidden"><div class="h-full ${bar}" style="width:${clamp(p, 0, 100)}%"></div></div><span class="text-xs tabular-nums w-10">${p.toFixed(0)}%</span></div></td>
+              <td>${rowActions('categories', c.id, c.name)}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="bg-white border border-steel-200 rounded-md">
+      ${panelHead('المصاريف المسجّلة', addBtn('expenses', 'تسجيل مصروف'))}
+      <div class="overflow-x-auto">
+        <table class="data w-full min-w-[760px]">
+          <thead><tr><th>التاريخ</th><th>البيان</th><th>البند</th><th>المبلغ</th><th></th></tr></thead>
+          <tbody>${[...state.expenses].sort((a, b) => b.date.localeCompare(a.date)).map(e => `<tr>
+            <td>${cell('expenses', e.id, 'date', e.date, 'date', 'w-40')}</td>
+            <td class="min-w-[14rem]">${cell('expenses', e.id, 'desc', e.desc)}</td>
+            <td><select class="cell-select" data-act="setfield" data-col="expenses" data-id="${e.id}" data-field="cat" data-int="1" aria-label="بند المصروف">
+              ${state.categories.map(c => `<option value="${c.id}" ${c.id === e.cat ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></td>
+            <td>${cell('expenses', e.id, 'amount', e.amount, 'number', 'w-32')}</td>
+            <td>${rowActions('expenses', e.id, e.desc)}</td>
+          </tr>`).join('') || emptyRow(5, 'لم تُسجَّل مصاريف بعد.')}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+function cashChartSVG() {
+  const act = monthlyActual(), plan = state.monthlyPlan, n = plan.length;
+  const nowIdx = monthIndex(iso(TODAY));
+  const W = 760, H = 290, top = 14, bottom = 42, left = 8, right = 42;
+  const maxV = Math.max(1, Math.ceil(Math.max(...plan, ...act.map(v => v / 1e6))));
+  const pw = W - left - right, ph = H - top - bottom, band = pw / n, bw = band * 0.33;
+  const y = v => top + ph - (v / maxV) * ph;
+  let g = '';
+  for (let i = 0; i <= maxV; i++) g += `<line x1="${left}" x2="${W - right}" y1="${y(i)}" y2="${y(i)}" stroke="#E8EBEC"/><text x="${W - right + 6}" y="${y(i) + 4}" font-size="11" fill="#5B6B77">${i}م</text>`;
+  for (let i = 0; i < n; i++) {
+    const cx = (W - right) - (i + 0.5) * band;
+    const mo = (CHART_START.m + i) % 12, yr = CHART_START.y + Math.floor((CHART_START.m + i) / 12);
+    const p = plan[i] || 0, a = act[i] / 1e6;
+    const showA = i <= nowIdx || a > 0;
+    g += `<rect x="${cx - bw - 1}" y="${y(p)}" width="${bw}" height="${Math.max(0, y(0) - y(p))}" fill="#A9B4BC"><title>${MONTHS[mo]} ${yr} — المخطط: ${p.toFixed(1)} مليون</title></rect>`;
+    if (showA) g += `<rect x="${cx + 1}" y="${y(a)}" width="${bw}" height="${Math.max(0, y(0) - y(a))}" fill="${a > p ? '#B87F00' : '#F5A800'}"><title>${MONTHS[mo]} ${yr} — الفعلي: ${a.toFixed(2)} مليون</title></rect>`;
+    g += `<text x="${cx}" y="${H - 22}" font-size="10" text-anchor="middle" fill="${i === nowIdx ? '#151E25' : '#2A3742'}" font-weight="${i === nowIdx ? 700 : 400}">${MONTHS[mo]}</text>`;
+    if (i === 0 || mo === 0) g += `<text x="${cx}" y="${H - 8}" font-size="10" text-anchor="middle" fill="#5B6B77">${yr}</text>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" class="w-full h-auto" role="img" aria-label="مخطط أعمدة يقارن المصاريف الشهرية الفعلية بالمخطط لها (بالملايين)">${g}</svg>
+    <p class="text-xs text-steel-500 mt-1">القيم بالملايين (${CUR}). العمود الأغمق يعني تجاوز المخطط في ذلك الشهر.</p>`;
+}
+
+/* =====================================================
+   7) تقدم المشروع
+   ===================================================== */
+function renderProgress() {
+  const ps = progressStats(), rk = computeRisks();
+  const gap = ps.plan - ps.act;
+  const daysLeft = daysBetween(rk.plannedEnd, TODAY);
+  const lvl = { high: ['مرتفعة', 'bad'], med: ['متوسطة', 'warn'], low: ['منخفضة', 'ok'] }[rk.level];
+  const sorted = [...state.milestones].sort((a, b) => D(a.pStart) - D(b.pStart));
+
+  $('#progress').innerHTML = `
+    <div class="bg-white border border-steel-200 rounded-md p-5 sm:p-6">
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+        <div><p class="text-sm text-steel-500">التقدم الإجمالي</p>
+          <p class="text-5xl font-bold tabular-nums leading-none mt-1">${Math.round(ps.act)}<span class="text-2xl text-steel-500 font-medium">%</span></p></div>
+        <dl class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          <div><dt class="text-steel-500">المخطط اليوم</dt><dd class="font-bold tabular-nums">${Math.round(ps.plan)}%</dd></div>
+          <div><dt class="text-steel-500">الفارق</dt><dd class="font-bold tabular-nums ${gap > 0.5 ? 'text-brick' : 'text-rebar'}">${gap > 0 ? '−' : '+'}${Math.abs(gap).toFixed(1)}</dd></div>
+          <div><dt class="text-steel-500">التسليم المخطط</dt><dd class="font-bold tabular-nums">${fdate(rk.plannedEnd)}</dd></div>
+          <div><dt class="text-steel-500">الأيام المتبقية</dt><dd class="font-bold tabular-nums">${daysLeft}</dd></div>
+        </dl>
+      </div>
+      ${hazardBar(ps.act, ps.plan)}
+      <p class="text-xs text-steel-500 mt-2 flex items-center gap-2"><i class="inline-block w-[3px] h-3 bg-steel-900"></i> الخط الأسود يمثل الإنجاز المخطط حتى اليوم</p>
+    </div>
+
+    <div class="bg-white border border-steel-200 rounded-md">
+      ${panelHead('مخاطر التأخير', `<span class="badge ${lvl[1]}">درجة الخطر: ${lvl[0]}</span>`)}
+      <div class="p-4 grid md:grid-cols-3 gap-4 border-b border-steel-200 text-sm">
+        <div><p class="text-steel-500">التسليم المخطط</p><p class="font-bold tabular-nums">${fdate(rk.plannedEnd)}</p></div>
+        <div><p class="text-steel-500">التسليم المتوقع</p><p class="font-bold tabular-nums ${rk.delayDays > 0 ? 'text-brick' : 'text-rebar'}">${fdate(rk.projectedEnd)}</p></div>
+        <div><p class="text-steel-500">التأخر المتوقع</p><p class="font-bold tabular-nums ${rk.delayDays > 0 ? 'text-brick' : 'text-rebar'}">${rk.delayDays > 0 ? rk.delayDays + ' يوم' : 'لا يوجد'}</p></div>
+      </div>
+      <ul class="divide-y divide-steel-100">
+        ${rk.items.map(i => `<li class="flex items-start gap-3 px-4 py-3 text-sm"><i class="mt-1.5 w-2 h-2 rounded-full shrink-0 ${i.lvl === 'high' ? 'bg-brick' : 'bg-hivis'}"></i><span>${i.text}</span></li>`).join('')
+          || '<li class="px-4 py-6 text-sm text-steel-500">لا توجد مخاطر ظاهرة حالياً.</li>'}
+      </ul>
+      <p class="text-xs text-steel-500 px-4 py-3 border-t border-steel-100">التسليم المتوقع = الأسوأ بين تقدير مؤشر الأداء الزمني (${rk.spi.toFixed(2)}) وأكبر تأخر متوقع في المراحل غير المكتملة.</p>
+    </div>
+
+    <div class="bg-white border border-steel-200 rounded-md">
+      ${panelHead('مراحل المشروع', addBtn('milestones', 'إضافة مرحلة'))}
+      <div class="overflow-x-auto">
+        <table class="data w-full min-w-[1150px]">
+          <thead><tr><th>المرحلة</th><th>بداية مخططة</th><th>نهاية مخططة</th><th>النهاية الفعلية / المتوقعة</th><th>الفارق</th><th>الوزن</th><th>الإنجاز %</th><th>الحالة</th><th></th></tr></thead>
+          <tbody>${sorted.map(m => {
+            const [key, label, cls] = msStatus(m), delay = msDelay(m);
+            const delayCell = delay === null ? '—' : delay > 0 ? `<span class="text-brick font-medium">+${delay} يوم</span>` : `<span class="text-rebar font-medium">في الموعد</span>`;
+            return `<tr>
+              <td class="min-w-[14rem]">${cell('milestones', m.id, 'name', m.name, 'text', 'font-medium')}</td>
+              <td>${cell('milestones', m.id, 'pStart', m.pStart, 'date', 'w-36')}</td>
+              <td>${cell('milestones', m.id, 'pEnd', m.pEnd, 'date', 'w-36')}</td>
+              <td class="whitespace-nowrap">${m.aEnd ? `${fs(m.aEnd)}` : m.fEnd ? `${fs(m.fEnd)} <span class="text-xs text-steel-500">(متوقع)</span>` : '—'}</td>
+              <td>${delayCell}</td>
+              <td>${cell('milestones', m.id, 'w', m.w, 'number', 'w-14')}</td>
+              <td><div class="flex items-center gap-2 min-w-[8rem]">
+                <div class="flex-1 h-2 bg-steel-100 rounded-sm overflow-hidden"><div class="h-full ${key === 'done' ? 'bg-rebar' : 'bg-hivis'}" style="width:${m.progress}%"></div></div>
+                ${cell('milestones', m.id, 'progress', m.progress, 'number', 'w-14')}</div></td>
+              <td><span class="badge ${cls}">${label}</span></td>
+              <td>${rowActions('milestones', m.id, m.name)}</td>
+            </tr>`;
+          }).join('') || emptyRow(9, 'لا توجد مراحل.')}</tbody>
+        </table>
+      </div>
+      <p class="text-xs text-steel-500 px-4 py-3 border-t border-steel-100">لتحديد التاريخ الفعلي أو المتوقع لمرحلة، اضغط زر التعديل في نهاية السطر.</p>
+    </div>`;
+}
+
+/* =====================================================
+   8) السجل اليومي والسلامة
+   ===================================================== */
+function renderLog() {
+  const sf = safetyDays();
+  const inc = state.log.reduce((s, l) => s + (l.injuries || 0), 0);
+  $('#log').innerHTML = `
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      ${statCard('أيام بلا إصابة', sf.days, sf.last ? `آخر إصابة ${fdate(sf.last)}` : 'لا توجد إصابات')}
+      ${statCard('إجمالي الإصابات', inc, '')}
+      ${statCard('إدخالات السجل', state.log.length, '')}
+      ${statCard('اجتماعات السلامة', state.log.filter(l => l.type === 'سلامة').length, '')}
+    </div>
+    <div class="bg-white border border-steel-200 rounded-md">
+      ${panelHead('سجل الموقع اليومي', addBtn('log', 'إضافة ملاحظة'))}
+      <div class="overflow-x-auto">
+        <table class="data w-full min-w-[980px]">
+          <thead><tr><th>التاريخ</th><th>الطقس</th><th>النوع</th><th>الملاحظة</th><th>العمال</th><th>الإصابات</th><th></th></tr></thead>
+          <tbody>${[...state.log].sort((a, b) => b.date.localeCompare(a.date)).map(l => `<tr>
+            <td>${cell('log', l.id, 'date', l.date, 'date', 'w-40')}</td>
+            <td class="whitespace-nowrap">${esc(l.weather)}</td>
+            <td><span class="badge ${l.injuries > 0 || l.type === 'حادث/إصابة' ? 'bad' : l.type === 'سلامة' ? 'ok' : 'mute'}">${esc(l.type)}</span></td>
+            <td class="min-w-[18rem]">${cell('log', l.id, 'note', l.note)}</td>
+            <td>${cell('log', l.id, 'workersCount', l.workersCount, 'number', 'w-14')}</td>
+            <td>${cell('log', l.id, 'injuries', l.injuries, 'number', 'w-14')}</td>
+            <td>${rowActions('log', l.id, l.type + ' ' + l.date)}</td>
+          </tr>`).join('') || emptyRow(7, 'السجل فارغ. اضغط «إضافة ملاحظة».')}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+/* =====================================================
+   9) التقارير والنسخ الاحتياطي
+   ===================================================== */
+function renderReports() {
+  const bt = budgetTotals(), ev = evm(), ps = ev.ps, rk = computeRisks(), sf = safetyDays(), pr = payroll();
+  const p = state.project;
+  const low = state.materials.filter(m => materialStatus(m).key !== 'ok');
+  $('#reports').innerHTML = `
+    <div class="no-print bg-white border border-steel-200 rounded-md p-4 space-y-4">
+      <div class="flex flex-wrap gap-2">
+        <button class="btn btn-primary" data-act="print">طباعة / حفظ كملف PDF</button>
+        <button class="btn btn-ghost" data-act="settings">بيانات المشروع</button>
+      </div>
+      <div>
+        <p class="text-sm font-semibold mb-2">تصدير جدول إلى Excel</p>
+        <div class="flex flex-wrap gap-2">
+          ${Object.entries(EXPORTS).map(([k, v]) => `<button class="btn btn-ghost btn-sm" data-act="export" data-key="${k}">${v.file}</button>`).join('')}
+        </div>
+      </div>
+      <div>
+        <p class="text-sm font-semibold mb-2">النسخ الاحتياطي</p>
+        <div class="flex flex-wrap gap-2">
+          <button class="btn btn-ghost btn-sm" data-act="backup">تنزيل نسخة احتياطية</button>
+          <button class="btn btn-ghost btn-sm" data-act="import">استرجاع نسخة</button>
+          <button class="btn btn-ghost btn-sm !text-brick" data-act="reset">إعادة البيانات الافتراضية</button>
+        </div>
+      </div>
+    </div>
+
+    <article class="bg-white border border-steel-200 rounded-md p-6 sm:p-8 space-y-7 print:border-0 print:p-0">
+      <header class="border-b-4 border-hivis pb-4">
+        <h2 class="text-2xl font-bold">تقرير حالة المشروع</h2>
+        <p class="text-steel-500 mt-1">${esc(p.name)} · بتاريخ ${fdate(TODAY)}</p>
+        <p class="text-sm text-steel-500 mt-1">صاحب المشروع: ${esc(p.owner)} · مسؤول الموقع: ${esc(p.manager)}</p>
+      </header>
+
+      <section>
+        <h3 class="font-bold mb-3">الملخص</h3>
+        <dl class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div><dt class="text-steel-500">نسبة الإنجاز</dt><dd class="text-xl font-bold tabular-nums">${Math.round(ps.act)}% <span class="text-xs font-normal text-steel-500">(المخطط ${Math.round(ps.plan)}%)</span></dd></div>
+          <div><dt class="text-steel-500">المصروف</dt><dd class="text-xl font-bold tabular-nums">${mil(bt.spent)} <span class="text-xs font-normal text-steel-500">من ${mil(bt.budget)}</span></dd></div>
+          <div><dt class="text-steel-500">التسليم المتوقع</dt><dd class="text-xl font-bold tabular-nums">${fdate(rk.projectedEnd)}</dd></div>
+          <div><dt class="text-steel-500">أيام بلا إصابة</dt><dd class="text-xl font-bold tabular-nums">${sf.days}</dd></div>
+        </dl>
+      </section>
+
+      <section><h3 class="font-bold mb-3">مراحل المشروع</h3>
+        <div class="overflow-x-auto"><table class="data w-full"><thead><tr><th>المرحلة</th><th>مخطط</th><th>فعلي / متوقع</th><th>الإنجاز</th><th>الحالة</th></tr></thead><tbody>
+          ${[...state.milestones].sort((a, b) => D(a.pStart) - D(b.pStart)).map(m => `<tr><td>${esc(m.name)}</td><td class="tabular-nums">${fs(m.pStart)} — ${fs(m.pEnd)}</td><td class="tabular-nums">${fs(m.aEnd || m.fEnd)}</td><td class="tabular-nums">${m.progress}%</td><td>${msStatus(m)[1]}</td></tr>`).join('')}
+        </tbody></table></div></section>
+
+      <section><h3 class="font-bold mb-3">الميزانية حسب البند</h3>
+        <div class="overflow-x-auto"><table class="data w-full"><thead><tr><th>البند</th><th>الميزانية</th><th>المصروف</th><th>المتبقي</th></tr></thead><tbody>
+          ${state.categories.map(c => `<tr><td>${esc(c.name)}</td><td class="tabular-nums">${money(c.budget)}</td><td class="tabular-nums">${money(catSpent(c))}</td><td class="tabular-nums">${money(c.budget - catSpent(c))}</td></tr>`).join('')}
+          <tr class="font-bold"><td>المجموع</td><td class="tabular-nums">${money(bt.budget)}</td><td class="tabular-nums">${money(bt.spent)}</td><td class="tabular-nums">${money(bt.left)}</td></tr>
+        </tbody></table></div>
+        <p class="text-sm mt-2">${ev.VAC < 0 ? `التكلفة النهائية المتوقعة ${mil(ev.EAC)}، بتجاوز ${mil(-ev.VAC)} عن الميزانية.` : `التكلفة النهائية المتوقعة ${mil(ev.EAC)}، ضمن الميزانية.`}</p></section>
+
+      <section><h3 class="font-bold mb-3">اليد العاملة والأجور</h3>
+        <p class="text-sm">عدد العمال ${state.workers.length}، الحاضرون اليوم ${state.workers.filter(w => w.status !== 'absent').length}. أجور الأسبوع ${money(pr.week)}، وأجور الشهر ${money(pr.month)}.</p></section>
+
+      <section><h3 class="font-bold mb-3">مواد تحتاج طلب توريد</h3>
+        ${low.length ? `<div class="overflow-x-auto"><table class="data w-full"><thead><tr><th>المادة</th><th>المتوفر</th><th>الحد الأدنى</th><th>يكفي لمدة</th><th>الكمية المقترحة</th></tr></thead><tbody>
+          ${low.map(m => { const s = materialStatus(m); return `<tr><td>${esc(m.name)}</td><td class="tabular-nums">${num(m.qty)} ${esc(m.unit)}</td><td class="tabular-nums">${num(m.min)}</td><td class="tabular-nums">${isFinite(s.days) ? Math.floor(s.days) + ' يوم' : '—'}</td><td class="tabular-nums">${num(suggestQty(m))} ${esc(m.unit)}</td></tr>`; }).join('')}
+        </tbody></table></div>` : '<p class="text-sm">كل المواد فوق الحد الأدنى.</p>'}</section>
+
+      <section><h3 class="font-bold mb-3">المعدات</h3>
+        <div class="overflow-x-auto"><table class="data w-full"><thead><tr><th>المعدة</th><th>الحالة</th><th>الصيانة القادمة</th></tr></thead><tbody>
+          ${state.equipment.map(e => { const nm = nextMaint(e.id); return `<tr><td>${esc(e.name)} (${esc(e.code)})</td><td>${EQ_STATUS[e.status][0]}</td><td class="tabular-nums">${nm ? fs(nm.date) : '—'}</td></tr>`; }).join('')}
+        </tbody></table></div></section>
+
+      <section><h3 class="font-bold mb-3">المخاطر</h3>
+        ${rk.items.length ? `<ul class="list-disc ps-5 space-y-1 text-sm">${rk.items.map(i => `<li>${i.text}</li>`).join('')}</ul>` : '<p class="text-sm">لا توجد مخاطر ظاهرة.</p>'}</section>
+
+      <section><h3 class="font-bold mb-3">آخر ملاحظات الموقع</h3>
+        <ul class="space-y-1 text-sm">${[...state.log].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5).map(l => `<li><span class="tabular-nums text-steel-500">${fs(l.date)}</span> — ${esc(l.note)}</li>`).join('') || '<li>لا توجد ملاحظات.</li>'}</ul></section>
+    </article>`;
+}
+
+/* =====================================================
+   التصدير والنسخ الاحتياطي
+   ===================================================== */
+const EXPORTS = {
+  workers:   { file: 'العمال',   head: ['الاسم', 'المهنة', 'الأجر اليومي', 'الحالة', 'وقت الحضور', 'الإنتاجية %', 'أيام الأسبوع', 'أيام الشهر', 'أجر الأسبوع', 'أجر الشهر'],
+               rows: () => state.workers.map(w => [w.name, w.trade, w.dailyWage, WORKER_STATUS[w.status][0], w.checkIn || '', w.prod, w.daysWeek, w.daysMonth, w.dailyWage * w.daysWeek, w.dailyWage * w.daysMonth]) },
+  equipment: { file: 'المعدات',  head: ['المعدة', 'الرمز', 'الحالة', 'ساعات التشغيل', 'الصيانة القادمة'],
+               rows: () => state.equipment.map(e => { const n = nextMaint(e.id); return [e.name, e.code, EQ_STATUS[e.status][0], e.hours, n ? n.date : '']; }) },
+  materials: { file: 'المواد',   head: ['المادة', 'الوحدة', 'الكمية', 'الحد الأدنى', 'الاستهلاك اليومي', 'سعر الوحدة', 'قيمة المخزون', 'الحالة', 'المورّد'],
+               rows: () => state.materials.map(m => [m.name, m.unit, m.qty, m.min, m.daily, m.price, m.qty * m.price, materialStatus(m).label, supName(m.supplierId)]) },
+  expenses:  { file: 'المصاريف', head: ['التاريخ', 'البيان', 'البند', 'المبلغ'],
+               rows: () => state.expenses.map(e => [e.date, e.desc, catName(e.cat), e.amount]) },
+  milestones:{ file: 'المراحل',  head: ['المرحلة', 'بداية مخططة', 'نهاية مخططة', 'نهاية فعلية', 'نهاية متوقعة', 'الإنجاز %', 'الوزن'],
+               rows: () => state.milestones.map(m => [m.name, m.pStart, m.pEnd, m.aEnd || '', m.fEnd || '', m.progress, m.w]) },
+  orders:    { file: 'الطلبات',  head: ['التاريخ', 'المادة', 'الكمية', 'المورّد', 'الحالة'],
+               rows: () => state.orders.map(o => [o.date, (matOf(o.matId) || {}).name, o.qty, supName(o.supplierId), o.status === 'received' ? 'تم الاستلام' : 'قيد الانتظار']) },
+  log:       { file: 'السجل',    head: ['التاريخ', 'الطقس', 'النوع', 'الملاحظة', 'عدد العمال', 'الإصابات'],
+               rows: () => state.log.map(l => [l.date, l.weather, l.type, l.note, l.workersCount, l.injuries]) }
+};
+function download(name, content, type) {
+  const blob = new Blob([content], { type });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+}
+function exportCSV(key) {
+  const E = EXPORTS[key];
+  const rows = [E.head, ...E.rows()];
+  const csv = '\uFEFFsep=;\n' + rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');
+  download(`${E.file}-${iso(TODAY)}.csv`, csv, 'text/csv;charset=utf-8');
+  toast(`تم تصدير جدول ${E.file}`);
+}
+function copyText(t) {
+  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(t);
+  const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); } catch (e) {} ta.remove(); return Promise.resolve();
+}
+
+/* =====================================================
+   نماذج الإدخال (إضافة / تعديل) لكل نوع سجل
+   ===================================================== */
+const opts = arr => arr.map(x => ({ v: x, l: x }));
+const catOpts = () => state.categories.map(c => ({ v: c.id, l: c.name }));
+const supOpts = () => [{ v: '', l: '— بدون —' }, ...state.suppliers.map(s => ({ v: s.id, l: s.name }))];
+const matOpts = () => state.materials.map(m => ({ v: m.id, l: m.name }));
+const eqOpts = () => state.equipment.map(e => ({ v: e.id, l: eqName(e.id) }));
+
+const SCHEMA = {
+  workers: { arr: 'workers', title: 'عامل', nameOf: x => x.name,
+    defaults: () => ({ name: '', trade: 'عامل', dailyWage: 2500, status: 'absent', checkIn: null, prod: 70, daysWeek: 0, daysMonth: 0, lastCheck: null }),
+    fields: () => [
+      { name: 'name', label: 'الاسم الكامل', required: true },
+      { name: 'trade', label: 'المهنة', list: 'tradeList', required: true },
+      { name: 'dailyWage', label: `الأجر اليومي (${CUR})`, type: 'number', min: 0 },
+      { name: 'status', label: 'حالة اليوم', type: 'select', options: Object.entries(WORKER_STATUS).map(([v, a]) => ({ v, l: a[0] })) },
+      { name: 'checkIn', label: 'وقت الحضور (مثال 07:00)', nullable: true },
+      { name: 'prod', label: 'الإنتاجية (%)', type: 'number', min: 0, max: 100 },
+      { name: 'daysWeek', label: 'أيام العمل هذا الأسبوع', type: 'number', min: 0, max: 7 },
+      { name: 'daysMonth', label: 'أيام العمل هذا الشهر', type: 'number', min: 0, max: 31 }
+    ] },
+  equipment: { arr: 'equipment', title: 'معدة', nameOf: x => x.name,
+    defaults: () => ({ name: '', code: '', status: 'running', hours: 0 }),
+    fields: () => [
+      { name: 'name', label: 'اسم المعدة', required: true },
+      { name: 'code', label: 'الرمز' },
+      { name: 'status', label: 'الحالة', type: 'select', options: Object.entries(EQ_STATUS).map(([v, a]) => ({ v, l: a[0] })) },
+      { name: 'hours', label: 'ساعات التشغيل', type: 'number', min: 0 }
+    ] },
+  maint: { arr: 'maint', title: 'صيانة', nameOf: x => `${eqName(x.eqId)} — ${x.type}`,
+    defaults: () => ({ eqId: (state.equipment[0] || {}).id, date: iso(new Date(TODAY.getTime() + 7 * DAY)), type: MAINT_TYPES[0], done: false }),
+    fields: () => [
+      { name: 'eqId', label: 'المعدة', type: 'select', options: eqOpts(), int: true },
+      { name: 'date', label: 'تاريخ الصيانة', type: 'date', required: true },
+      { name: 'type', label: 'نوع الصيانة', type: 'select', options: opts(MAINT_TYPES) }
+    ] },
+  materials: { arr: 'materials', title: 'مادة', nameOf: x => x.name,
+    defaults: () => ({ name: '', unit: '', qty: 0, min: 0, price: 0, daily: 0, lead: 2, supplierId: null }),
+    fields: () => [
+      { name: 'name', label: 'اسم المادة', required: true },
+      { name: 'unit', label: 'الوحدة (طن، كيس، م³...)', required: true },
+      { name: 'qty', label: 'الكمية المتوفرة', type: 'number', min: 0 },
+      { name: 'min', label: 'الحد الأدنى للمخزون', type: 'number', min: 0 },
+      { name: 'daily', label: 'الاستهلاك اليومي المتوقع', type: 'number', min: 0 },
+      { name: 'lead', label: 'مدة التوريد (بالأيام)', type: 'number', min: 0 },
+      { name: 'price', label: `سعر الوحدة (${CUR})`, type: 'number', min: 0 },
+      { name: 'supplierId', label: 'المورّد', type: 'select', options: supOpts(), int: true }
+    ] },
+  suppliers: { arr: 'suppliers', title: 'مورّد', nameOf: x => x.name,
+    defaults: () => ({ name: '', phone: '', notes: '' }),
+    fields: () => [
+      { name: 'name', label: 'اسم المورّد', required: true },
+      { name: 'phone', label: 'رقم الهاتف' },
+      { name: 'notes', label: 'ما يوفّره' }
+    ] },
+  orders: { arr: 'orders', title: 'طلب توريد', nameOf: x => (matOf(x.matId) || {}).name || 'طلب',
+    defaults: () => ({ date: iso(TODAY), matId: (state.materials[0] || {}).id, qty: 1, supplierId: null, status: 'pending' }),
+    fields: () => [
+      { name: 'matId', label: 'المادة', type: 'select', options: matOpts(), int: true },
+      { name: 'qty', label: 'الكمية المطلوبة', type: 'number', min: 0.1, required: true },
+      { name: 'date', label: 'تاريخ الطلب', type: 'date', required: true }
+    ],
+    after: o => { const m = matOf(o.matId); if (m) o.supplierId = m.supplierId; } },
+  categories: { arr: 'categories', title: 'بند ميزانية', nameOf: x => x.name,
+    defaults: () => ({ name: '', budget: 0, opening: 0 }),
+    fields: () => [
+      { name: 'name', label: 'اسم البند', required: true },
+      { name: 'budget', label: `الميزانية المخططة (${CUR})`, type: 'number', min: 0 },
+      { name: 'opening', label: `مصاريف سابقة غير مسجّلة في الجدول (${CUR})`, type: 'number', min: 0 }
+    ] },
+  expenses: { arr: 'expenses', title: 'مصروف', nameOf: x => x.desc,
+    defaults: () => ({ date: iso(TODAY), desc: '', cat: (state.categories[0] || {}).id, amount: 0 }),
+    fields: () => [
+      { name: 'desc', label: 'البيان', required: true },
+      { name: 'cat', label: 'البند', type: 'select', options: catOpts(), int: true },
+      { name: 'amount', label: `المبلغ (${CUR})`, type: 'number', min: 0, required: true },
+      { name: 'date', label: 'التاريخ', type: 'date', required: true }
+    ] },
+  milestones: { arr: 'milestones', title: 'مرحلة', nameOf: x => x.name,
+    defaults: () => ({ name: '', pStart: iso(TODAY), pEnd: iso(new Date(TODAY.getTime() + 30 * DAY)), aEnd: null, fEnd: null, progress: 0, w: 5 }),
+    fields: () => [
+      { name: 'name', label: 'اسم المرحلة', required: true },
+      { name: 'pStart', label: 'بداية مخططة', type: 'date', required: true },
+      { name: 'pEnd', label: 'نهاية مخططة', type: 'date', required: true },
+      { name: 'aEnd', label: 'نهاية فعلية (اتركها فارغة إن لم تنتهِ)', type: 'date', nullable: true },
+      { name: 'fEnd', label: 'نهاية متوقعة (اختياري)', type: 'date', nullable: true },
+      { name: 'progress', label: 'نسبة الإنجاز (%)', type: 'number', min: 0, max: 100 },
+      { name: 'w', label: 'الوزن في التقدم الإجمالي', type: 'number', min: 0 }
+    ],
+    after: m => { m.progress = clamp(m.progress, 0, 100); if (m.progress >= 100 && !m.aEnd) m.aEnd = iso(TODAY); } },
+  log: { arr: 'log', title: 'ملاحظة يومية', nameOf: x => `${x.type} ${fs(x.date)}`,
+    defaults: () => ({ date: iso(TODAY), weather: WEATHER[0], type: LOG_TYPES[0], note: '', workersCount: state.workers.filter(w => w.status !== 'absent').length, injuries: 0 }),
+    fields: () => [
+      { name: 'date', label: 'التاريخ', type: 'date', required: true },
+      { name: 'weather', label: 'الطقس', type: 'select', options: opts(WEATHER) },
+      { name: 'type', label: 'النوع', type: 'select', options: opts(LOG_TYPES) },
+      { name: 'note', label: 'الملاحظة', type: 'textarea', required: true },
+      { name: 'workersCount', label: 'عدد العمال في الموقع', type: 'number', min: 0 },
+      { name: 'injuries', label: 'عدد الإصابات', type: 'number', min: 0 }
+    ] }
+};
+
+/* =====================================================
+   نافذة الإدخال + الإشعارات
+   ===================================================== */
+const modal = $('#modal');
+let modalHandler = null;
+
+function openModal({ title, message = '', fields = [], submit = 'حفظ', danger = false, onSubmit }) {
+  $('#modalTitle').textContent = title;
+  const msg = $('#modalMsg'); msg.textContent = message; msg.classList.toggle('hidden', !message);
+  const sb = $('#modalSubmit'); sb.textContent = submit; sb.className = 'btn ' + (danger ? 'btn-danger' : 'btn-primary');
+  $('#modalFields').innerHTML = fields.map(f => {
+    const val = f.value ?? '';
+    let input;
+    if (f.type === 'select') input = `<select name="${f.name}" class="field" ${f.required ? 'required' : ''}>${f.options.map(o => `<option value="${esc(o.v ?? '')}" ${String(o.v ?? '') === String(val ?? '') ? 'selected' : ''}>${esc(o.l)}</option>`).join('')}</select>`;
+    else if (f.type === 'textarea') input = `<textarea name="${f.name}" rows="3" class="field" ${f.required ? 'required' : ''}>${esc(val)}</textarea>`;
+    else input = `<input name="${f.name}" type="${f.type || 'text'}" class="field" ${f.required ? 'required' : ''} ${f.list ? `list="${f.list}"` : ''}
+             ${f.min !== undefined ? `min="${f.min}"` : ''} ${f.max !== undefined ? `max="${f.max}"` : ''} ${f.type === 'number' ? 'step="any"' : ''} value="${esc(val)}">`;
+    return `<label class="block"><span class="block text-sm font-medium mb-1.5">${f.label}</span>${input}</label>`;
+  }).join('');
+  modalHandler = onSubmit;
+  modal.showModal();
+}
+$('#modalForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target));
+  modal.close();
+  if (modalHandler) modalHandler(data);
+});
+$('#modalCancel').addEventListener('click', () => modal.close());
+
+let toastTimer;
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg; t.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.add('hidden'), 2800);
+}
+
+function commit(msg) { save(); refreshAll(); if (msg) toast(msg); }
+
+function openForm(col, id, preset = {}) {
+  const S = SCHEMA[col];
+  const rec = id ? state[S.arr].find(x => x.id === id) : null;
+  const dflt = S.defaults();
+  const fields = S.fields().map(f => ({ ...f, value: rec ? rec[f.name] : (preset[f.name] ?? dflt[f.name]) }));
+  openModal({
+    title: (rec ? 'تعديل ' : 'إضافة ') + S.title, fields, submit: rec ? 'حفظ التعديلات' : 'إضافة',
+    onSubmit: v => {
+      const obj = {};
+      S.fields().forEach(f => {
+        let x = v[f.name];
+        if (f.type === 'number') x = (x === '' || x === undefined) ? 0 : +x;
+        else if (f.int) x = (x === '' || x === undefined) ? null : +x;
+        else if (typeof x === 'string') { x = x.trim(); if (x === '' && f.nullable) x = null; }
+        obj[f.name] = x;
+      });
+      let target;
+      if (rec) { Object.assign(rec, obj); target = rec; }
+      else { target = { id: nid(state[S.arr]), ...dflt, ...preset, ...obj }; state[S.arr].push(target); }
+      if (S.after) S.after(target);
+      if (col === 'workers' && !rec && target.status !== 'absent') { const st = target.status; target.status = 'absent'; setWorkerStatus(target, st); }
+      commit(rec ? 'تم حفظ التعديلات' : 'تمت الإضافة');
+    }
+  });
+}
+
+function removeRecord(col, id) {
+  const S = SCHEMA[col];
+  if (col === 'categories' && state.expenses.some(e => e.cat === id)) { toast('لا يمكن حذف بند فيه مصاريف. احذف مصاريفه أو انقلها إلى بند آخر أولاً.'); return; }
+  state[S.arr] = state[S.arr].filter(x => x.id !== id);
+  if (col === 'equipment') state.maint = state.maint.filter(m => m.eqId !== id);
+  if (col === 'materials') state.orders = state.orders.filter(o => o.matId !== id);
+  if (col === 'suppliers') { state.materials.forEach(m => { if (m.supplierId === id) m.supplierId = null; }); state.orders.forEach(o => { if (o.supplierId === id) o.supplierId = null; }); }
+  commit('تم الحذف');
+}
+
+/* =====================================================
+   الإجراءات
+   ===================================================== */
+function refreshAll() {
+  $('#sideProject').textContent = state.project.name;
+  $('#todayLabel').textContent = fdate(TODAY);
+  renderOverview(); renderWorkers(); renderEquipment(); renderMaterials(); renderSuppliers();
+  renderBudget(); renderProgress(); renderLog(); renderReports();
+}
+function deferredRefresh() {
+  setTimeout(() => {
+    const a = document.activeElement, d = a && a.dataset;
+    const sel = d && d.field ? `[data-col="${d.col}"][data-id="${d.id}"][data-field="${d.field}"]` : null;
+    const sy = window.scrollY;
+    refreshAll();
+    if (sel) { const n = document.querySelector(sel); if (n) { n.focus(); if (n.type !== 'date') { try { n.select(); } catch (_) {} } } }
+    window.scrollTo({ top: sy });
+  }, 0);
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if (!b || b.tagName === 'SELECT' || b.tagName === 'INPUT') return;
+  const act = b.dataset.act, id = +b.dataset.id, col = b.dataset.col;
+
+  if (act === 'goto') showSection(b.dataset.target);
+  else if (act === 'add') openForm(col, null);
+  else if (act === 'edit') openForm(col, id);
+  else if (act === 'del') {
+    const S = SCHEMA[col], rec = state[S.arr].find(x => x.id === id);
+    if (!rec) return;
+    openModal({ title: 'تأكيد الحذف', message: `هل تريد حذف «${S.nameOf(rec)}»؟ لا يمكن التراجع عن هذا الإجراء.`, submit: 'حذف', danger: true, onSubmit: () => removeRecord(col, id) });
+  }
+  else if (act === 'schedule') openForm('maint', null, { eqId: id });
+  else if (act === 'calday') openForm('maint', null, { date: b.dataset.date });
+  else if (act === 'calnav') { cal.m += +b.dataset.dir; if (cal.m < 0) { cal.m = 11; cal.y--; } if (cal.m > 11) { cal.m = 0; cal.y++; } renderEquipment(); }
+  else if (act === 'maintdone') { const m = byId('maint', id); m.done = true; commit('تم تسجيل الصيانة كمنجزة'); }
+  else if (act === 'restock') {
+    const m = byId('materials', id);
+    openModal({ title: `تزويد مخزون: ${m.name}`, fields: [{ name: 'qty', label: `الكمية المضافة (${m.unit})`, type: 'number', required: true, min: 0.1 }], submit: 'إضافة للمخزون',
+      onSubmit: v => { m.qty = +(m.qty + +v.qty).toFixed(2); commit('تمت إضافة الكمية إلى المخزون'); } });
+  }
+  else if (act === 'order') { const m = byId('materials', id); openForm('orders', null, { matId: id, qty: suggestQty(m) }); }
+  else if (act === 'receive') {
+    const o = byId('orders', id), m = matOf(o.matId);
+    openModal({ title: 'تأكيد استلام الطلب', message: `سيُضاف ${num(o.qty)} ${m.unit} من «${m.name}» إلى المخزون، ويُسجَّل مصروف بقيمة ${money(o.qty * m.price)} في بند المواد.`, submit: 'تأكيد الاستلام',
+      onSubmit: () => {
+        o.status = 'received'; m.qty = +(m.qty + o.qty).toFixed(2);
+        const cat = state.categories.find(c => c.name.includes('مواد')) || state.categories[0];
+        if (cat) state.expenses.push({ id: nid(state.expenses), date: iso(TODAY), desc: `توريد ${m.name} (${num(o.qty)} ${m.unit})`, cat: cat.id, amount: o.qty * m.price });
+        commit('تم الاستلام وتحديث المخزون والمصاريف');
+      } });
+  }
+  else if (act === 'copyorder') { copyText(orderText(byId('orders', id))).then(() => toast('تم نسخ نص الطلب، ألصقه في واتساب أو رسالة')); }
+  else if (act === 'checkin') { const w = byId('workers', id); const n = new Date(); setWorkerStatus(w, n.getHours() * 60 + n.getMinutes() > 435 ? 'late' : 'present'); commit(`تم تسجيل حضور ${w.name}`); }
+  else if (act === 'payroll') {
+    const pr = payroll();
+    openModal({ title: 'تسجيل أجور الأسبوع', message: `سيُسجَّل مصروف بقيمة ${money(pr.week)} في بند العمالة.`,
+      fields: [{ name: 'date', label: 'التاريخ', type: 'date', required: true, value: iso(TODAY) }], submit: 'تسجيل المصروف',
+      onSubmit: v => {
+        const cat = state.categories.find(c => c.name.includes('عمال')) || state.categories[0];
+        state.expenses.push({ id: nid(state.expenses), date: v.date, desc: `أجور الأسبوع المنتهي ${fs(v.date)}`, cat: cat.id, amount: pr.week });
+        commit('تم تسجيل الأجور في الميزانية');
+      } });
+  }
+  else if (act === 'editplan') {
+    const fields = state.monthlyPlan.map((v, i) => {
+      const mo = (CHART_START.m + i) % 12, yr = CHART_START.y + Math.floor((CHART_START.m + i) / 12);
+      return { name: 'p' + i, label: `${MONTHS[mo]} ${yr} (بالملايين)`, type: 'number', min: 0, value: v };
+    });
+    openModal({ title: 'المصاريف الشهرية المخططة', fields, submit: 'حفظ', onSubmit: v => { state.monthlyPlan = state.monthlyPlan.map((_, i) => +v['p' + i] || 0); commit('تم تحديث المخطط الشهري'); } });
+  }
+  else if (act === 'settings') {
+    const p = state.project;
+    openModal({ title: 'بيانات المشروع', submit: 'حفظ', fields: [
+      { name: 'name', label: 'اسم المشروع', required: true, value: p.name },
+      { name: 'owner', label: 'صاحب المشروع', value: p.owner },
+      { name: 'manager', label: 'مسؤول الموقع', value: p.manager },
+      { name: 'today', label: 'تاريخ اليوم (اتركه فارغاً لاستعمال تاريخ الجهاز)', type: 'date', value: p.today }
+    ], onSubmit: v => { state.project = { name: v.name.trim() || p.name, owner: v.owner.trim(), manager: v.manager.trim(), today: v.today || '' }; setToday(); commit('تم حفظ بيانات المشروع'); } });
+  }
+  else if (act === 'print') window.print();
+  else if (act === 'export') exportCSV(b.dataset.key);
+  else if (act === 'backup') { download(`نسخة-احتياطية-${iso(TODAY)}.json`, JSON.stringify(state, null, 2), 'application/json'); toast('تم تنزيل النسخة الاحتياطية'); }
+  else if (act === 'import') $('#importFile').click();
+  else if (act === 'reset') openModal({ title: 'إعادة البيانات الافتراضية', message: 'ستُحذف كل تعديلاتك وتعود البيانات التجريبية الأصلية. ننصحك بتنزيل نسخة احتياطية أولاً.', submit: 'إعادة الضبط', danger: true,
+    onSubmit: () => { store.del(); state = defaults(); setToday(); commit('تمت إعادة البيانات الافتراضية'); } });
+});
+
+document.addEventListener('change', e => {
+  const el = e.target;
+
+  if (el.matches('input.cell')) {
+    const { col, id, field } = el.dataset;
+    const S = SCHEMA[col], rec = state[S.arr].find(x => x.id === +id);
+    if (!rec) return;
+    const f = S.fields().find(x => x.name === field) || {};
+    let v = el.value;
+    if (el.type === 'number') { v = v === '' ? 0 : +v; if (f.min !== undefined) v = Math.max(f.min, v); if (f.max !== undefined) v = Math.min(f.max, v); }
+    else if (el.type === 'date') v = v || (f.nullable ? null : rec[field]);
+    else v = v.trim();
+    rec[field] = v;
+    if (S.after) S.after(rec);
+    save(); deferredRefresh();
+    return;
+  }
+
+  if (el.matches('select[data-act="wstatus"]')) { const w = byId('workers', +el.dataset.id); setWorkerStatus(w, el.value); commit(); return; }
+  if (el.matches('select[data-act="setfield"]')) {
+    const S = SCHEMA[el.dataset.col], rec = state[S.arr].find(x => x.id === +el.dataset.id);
+    rec[el.dataset.field] = el.dataset.int ? +el.value : el.value;
+    commit(); return;
+  }
+  if (el.id === 'importFile') {
+    const file = el.files[0]; if (!file) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const o = JSON.parse(r.result);
+        if (!o || o.v !== 2 || !Array.isArray(o.workers) || !Array.isArray(o.materials)) throw new Error('bad');
+        state = o; setToday(); commit('تم استرجاع النسخة الاحتياطية');
+      } catch (err) { toast('الملف غير صالح. اختر نسخة احتياطية أنشأها هذا الموقع.'); }
+      el.value = '';
+    };
+    r.readAsText(file);
+  }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('input.cell')) e.target.blur(); });
+$('#wkSearch').addEventListener('input', renderWorkers);
+$('#wkTrade').addEventListener('change', renderWorkers);
+
+/* =====================================================
+   التنقل بين الأقسام
+   ===================================================== */
+const NAV = {
+  overview:  { label: 'لوحة الإحصائيات العامة',   icon: '<rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/>' },
+  workers:   { label: 'إدارة العمال والأجور',     icon: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>' },
+  equipment: { label: 'المعدات والصيانة',         icon: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>' },
+  materials: { label: 'مواد البناء والمخزون',     icon: '<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/>' },
+  suppliers: { label: 'الموردون وطلبات التوريد',  icon: '<path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>' },
+  budget:    { label: 'المصاريف والميزانية',      icon: '<circle cx="12" cy="12" r="9"/><path d="M14.5 9a2.5 2.5 0 0 0-2.5-1.5c-1.4 0-2.5.8-2.5 2s1.1 1.7 2.5 2 2.5.8 2.5 2-1.1 2-2.5 2A2.5 2.5 0 0 1 9.5 15"/><path d="M12 6v1.5M12 16.5V18"/>' },
+  progress:  { label: 'تقدم المشروع والمخاطر',    icon: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>' },
+  log:       { label: 'السجل اليومي والسلامة',    icon: '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 12h6M9 16h6"/>' },
+  reports:   { label: 'التقارير والنسخ الاحتياطي', icon: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6"/>' }
+};
+
+$$('.nav-btn').forEach(b => {
+  const n = NAV[b.dataset.target];
+  b.className = 'nav-btn w-full flex items-center gap-3 px-5 py-3 text-sm font-medium text-steel-300 border-s-4 border-transparent hover:bg-steel-700 hover:text-white text-start';
+  b.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${n.icon}</svg><span>${n.label}</span>`;
+  b.addEventListener('click', () => showSection(b.dataset.target));
+});
+
+function showSection(id) {
+  if (!NAV[id]) id = 'overview';
+  $$('.section').forEach(s => s.classList.toggle('hidden', s.id !== id));
+  $$('.nav-btn').forEach(b => {
+    const on = b.dataset.target === id;
+    b.classList.toggle('!border-hivis', on);
+    b.classList.toggle('bg-steel-700', on);
+    b.classList.toggle('!text-white', on);
+    b.setAttribute('aria-current', on ? 'page' : 'false');
+  });
+  $('#pageTitle').textContent = NAV[id].label;
+  try { history.replaceState(null, '', '#' + id); } catch (e) {}
+  closeMenu();
+  window.scrollTo({ top: 0 });
+}
+
+const sidebar = $('#sidebar'), scrim = $('#scrim');
+function openMenu() { sidebar.classList.remove('translate-x-full'); scrim.classList.remove('hidden'); }
+function closeMenu() { sidebar.classList.add('translate-x-full'); scrim.classList.add('hidden'); }
+$('#menuBtn').addEventListener('click', openMenu);
+scrim.addEventListener('click', closeMenu);
+
+/* =====================================================
+   التشغيل
+   ===================================================== */
+cal = { y: TODAY.getFullYear(), m: TODAY.getMonth() };
+refreshAll();
+firstPaint = false;
+save();
+showSection(location.hash.slice(1) || 'overview');
+</script>
+</body>
+</html>
